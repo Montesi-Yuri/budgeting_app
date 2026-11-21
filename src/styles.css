@@ -89,3 +89,14 @@ nav { flex-wrap: wrap; }
 .meter.over > span { background: var(--negative); }
 .badge.over, .badge.broken { background: var(--negative); color: #ffffff; }
 .badge.muted-badge { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+
+
+/* Home: Spendable */
+.spendable { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; }
+.headline { font-size: 2.2rem; font-weight: 700; }
+.headline.small-headline { font-size: 1.5rem; }
+.weekly { text-align: right; }
+.breakdown { width: 100%; border-collapse: collapse; }
+.breakdown td { padding: 4px 0; }
+.breakdown td:last-child { text-align: right; }
+.breakdown .total td { border-top: 1px solid var(--border); font-weight: 700; padding-top: 8px; }

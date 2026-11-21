@@ -145,3 +145,37 @@ export const api = {
   budgetEnd: (id: string, lastDay: string) => invoke<Budget>("budget_end", { id, lastDay }),
   budgetDelete: (id: string) => invoke<void>("budget_delete", { id }),
 };
+
+/** The Weekly Spendable for today's Week (cut at the Period boundary). */
+export type WeeklySpendable = {
+  week_first_day: string;
+  week_last_day: string;
+  /** Counting today. */
+  days_left_in_period: number;
+  /** Counting today. */
+  days_left_in_week: number;
+  amount_minor: number;
+};
+
+/** Spendable for one Period (YYYY-MM) and the terms it is made of. */
+export type PeriodSpendable = {
+  period: string;
+  first_day: string;
+  last_day: string;
+  income_minor: number;
+  /** Negative; Refunds included. */
+  expenses_minor: number;
+  /** Counted as Expenses (negative) or Refunds (positive). */
+  uncategorised_minor: number;
+  savings_target_minor: number;
+  spendable_minor: number;
+  /** Only when today is in this Period. */
+  weekly: WeeklySpendable | null;
+};
+
+export const spendableApi = {
+  savingsTargetGet: () => invoke<number>("savings_target_get"),
+  savingsTargetSet: (minor: number) => invoke<void>("savings_target_set", { minor }),
+  /** `today` is the local date (YYYY-MM-DD). */
+  spendableGet: (period: string, today: string) => invoke<PeriodSpendable>("spendable_get", { period, today }),
+};

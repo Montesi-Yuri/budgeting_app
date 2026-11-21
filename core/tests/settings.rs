@@ -49,3 +49,34 @@ fn a_currency_must_be_a_three_letter_iso_code() {
     }
     assert_eq!(settings::currency(&store).unwrap(), None);
 }
+
+#[test]
+fn the_savings_target_is_zero_until_the_user_sets_one() {
+    let store = Store::open_in_memory().unwrap();
+    assert_eq!(settings::savings_target_minor(&store).unwrap(), 0);
+}
+
+#[test]
+fn setting_the_savings_target_is_a_synced_change() {
+    let mut store = Store::open_in_memory().unwrap();
+
+    settings::set_savings_target(&mut store, 30_000).unwrap();
+
+    assert_eq!(settings::savings_target_minor(&store).unwrap(), 30_000);
+    let ops = store.ops_since(store.device_id(), 0).unwrap();
+    assert_eq!(ops.len(), 1);
+    assert_eq!(
+        (ops[0].entity.as_str(), ops[0].entity_id.as_str()),
+        ("setting", "savings_target_minor")
+    );
+}
+
+#[test]
+fn a_savings_target_cannot_be_negative() {
+    let mut store = Store::open_in_memory().unwrap();
+    assert!(matches!(
+        settings::set_savings_target(&mut store, -1),
+        Err(Error::Invalid(_))
+    ));
+    assert_eq!(settings::savings_target_minor(&store).unwrap(), 0);
+}

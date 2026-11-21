@@ -4,13 +4,15 @@ import AccountsPage from "./components/AccountsPage";
 import BudgetsPage from "./components/BudgetsPage";
 import CategoriesPage from "./components/CategoriesPage";
 import CurrencyPicker from "./components/CurrencyPicker";
+import HomePage from "./components/HomePage";
 import SettingsPage from "./components/SettingsPage";
 import TransactionsPage from "./components/TransactionsPage";
 import UncategorisedPage from "./components/UncategorisedPage";
 
-type View = "accounts" | "transactions" | "uncategorised" | "categories" | "settings" | "budgets";
+type View = "home" | "accounts" | "transactions" | "uncategorised" | "categories" | "settings" | "budgets";
 
 const VIEWS: { view: View; label: string }[] = [
+  { view: "home", label: "Home" },
   { view: "accounts", label: "Accounts" },
   { view: "transactions", label: "Transactions" },
   { view: "uncategorised", label: "Uncategorised" },
@@ -22,7 +24,7 @@ const VIEWS: { view: View; label: string }[] = [
 export default function App() {
   // undefined = loading, null = not chosen yet (first launch)
   const [currency, setCurrency] = useState<string | null | undefined>(undefined);
-  const [view, setView] = useState<View>("accounts");
+  const [view, setView] = useState<View>("home");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export default function App() {
         </nav>
       </header>
       <main className="page">
+        {view === "home" && <HomePage currency={currency} />}
         {view === "accounts" && <AccountsPage currency={currency} />}
         {view === "transactions" && <TransactionsPage currency={currency} />}
         {view === "uncategorised" && <UncategorisedPage currency={currency} />}
