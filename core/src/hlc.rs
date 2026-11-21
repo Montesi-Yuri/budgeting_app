@@ -69,6 +69,20 @@ impl fmt::Display for Hlc {
     }
 }
 
+/// On the wire (sync messages) a stamp is its string form.
+impl serde::Serialize for Hlc {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Hlc {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        s.parse().map_err(serde::de::Error::custom)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("malformed HLC stamp: {0:?}")]
 pub struct ParseHlcError(String);

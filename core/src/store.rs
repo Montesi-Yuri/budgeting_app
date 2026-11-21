@@ -25,19 +25,28 @@
 //!    `updated_hlc` / `deleted`) and implement [`SyncedRow`] for it.
 //! 3. Write it only via `store.write(|w| w.upsert(&row))` / `w.delete::<Row>(id)`.
 //!    Never `INSERT`/`UPDATE`/`DELETE` a synced table anywhere else.
-//! 4. Register the entity name where remote ops are applied (ticket 13).
+//! 4. Register it for Sync: add `entity::<MyRow>(),` to `SYNCED_ENTITIES` in
+//!    `core/src/sync/registry.rs`. That is how [`Store::apply_remote`] turns a
+//!    received op's `entity` name back into your struct. The test
+//!    `every_synced_table_is_registered_for_sync` fails until you do.
+//! 5. A field added to an existing row later needs `#[serde(default)]`, so
+//!    payloads from a Device on an older schema still decode.
+//!
+//! Changes received from another Device go through [`Store::apply_remote`]
+//! (see [`crate::sync`]), never through `write`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::db;
 use crate::error::{Error, Result};
 use crate::hlc::{Clock, Hlc};
+use crate::sync;
 
 /// A row of a synced table. The struct must hold every column except
 /// `updated_hlc` and `deleted`, because its CBOR encoding is the op payload
@@ -56,14 +65,15 @@ pub trait SyncedRow: Serialize + DeserializeOwned {
     fn save(&self, conn: &Connection, hlc: &Hlc) -> rusqlite::Result<()>;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum OpKind {
     Upsert,
     Delete,
 }
 
 impl OpKind {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             OpKind::Upsert => "upsert",
             OpKind::Delete => "delete",
@@ -79,8 +89,8 @@ impl OpKind {
     }
 }
 
-/// One change in the sync log.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// One change in the sync log. It is also sent as-is in sync messages.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Op {
     /// The device id of the Device that made the change.
     pub origin: String,
@@ -91,6 +101,7 @@ pub struct Op {
     pub entity_id: String,
     pub kind: OpKind,
     /// CBOR of the full row, for upserts only.
+    #[serde(with = "serde_bytes")]
     pub payload: Option<Vec<u8>>,
 }
 
@@ -184,6 +195,28 @@ impl Store {
         Ok(out)
     }
 
+    /// Apply changes received from another Device (a Sync batch, or a
+    /// restored Backup), all in **one** DB transaction: if any op fails,
+    /// none of them is kept.
+    ///
+    /// Idempotent and order-independent: an op already in the sync log is
+    /// ignored, and a row only takes a change that is newer (by HLC) than
+    /// its current version. The clock observes every op, so later local
+    /// writes are stamped after them.
+    pub fn apply_remote(&mut self, ops: &[Op]) -> Result<ApplyReport> {
+        let tx = self.conn.transaction()?;
+        let mut report = ApplyReport::default();
+        for op in ops {
+            self.clock.observe(&op.hlc);
+            if sync::apply_op(&tx, op)? {
+                report.new_ops += 1;
+                report.entities.insert(op.entity.clone());
+            }
+        }
+        tx.commit()?;
+        Ok(report)
+    }
+
     /// The ops made by `origin` with `seq > after_seq`, in `seq` order.
     pub fn ops_since(&self, origin: &str, after_seq: u64) -> Result<Vec<Op>> {
         let mut stmt = self.conn.prepare(
@@ -226,6 +259,15 @@ impl Store {
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
+}
+
+/// What [`Store::apply_remote`] did.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ApplyReport {
+    /// Ops that were not in the sync log yet (the rest were duplicates).
+    pub new_ops: usize,
+    /// The entities those new ops touched, e.g. to refresh the UI.
+    pub entities: BTreeSet<String>,
 }
 
 /// Handle given to the closure of [`Store::write`]. See the module docs.

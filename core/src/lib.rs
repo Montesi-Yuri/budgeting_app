@@ -9,6 +9,7 @@ pub mod error;
 pub mod hlc;
 pub mod settings;
 pub mod store;
+pub mod sync;
 
 pub use db::SCHEMA_VERSION;
 pub use error::{Error, Result};
