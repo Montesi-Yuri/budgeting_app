@@ -63,3 +63,5 @@ button.tab { border: none; background: none; color: var(--muted); }
 button.tab.active { color: var(--text); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); border-radius: 0; }
 .actions { display: flex; gap: 8px; }
 code { font-size: 0.85em; }
+h3 { font-size: 0.95rem; margin: 16px 0 8px; }
+h2.spaced { margin-top: 32px; }

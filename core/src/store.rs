@@ -63,14 +63,14 @@ pub enum OpKind {
 }
 
 impl OpKind {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             OpKind::Upsert => "upsert",
             OpKind::Delete => "delete",
         }
     }
 
-    fn parse(s: &str) -> Result<Self> {
+    pub(crate) fn parse(s: &str) -> Result<Self> {
         match s {
             "upsert" => Ok(OpKind::Upsert),
             "delete" => Ok(OpKind::Delete),
@@ -181,6 +181,22 @@ impl Store {
         };
         let out = f(&mut writer)?;
         tx.commit()?;
+        Ok(out)
+    }
+
+    /// For modules of this crate that apply ops made elsewhere (Backup
+    /// restore): run `f` in one DB transaction, then let the clock observe
+    /// the newest HLC it returns, so later local writes stamp newer changes.
+    pub(crate) fn apply_foreign<T>(
+        &mut self,
+        f: impl FnOnce(&Transaction<'_>) -> Result<(T, Option<Hlc>)>,
+    ) -> Result<T> {
+        let tx = self.conn.transaction()?;
+        let (out, newest) = f(&tx)?;
+        tx.commit()?;
+        if let Some(newest) = newest {
+            self.clock.observe(&newest);
+        }
         Ok(out)
     }
 

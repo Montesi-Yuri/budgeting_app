@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, errorMessage } from "./api";
 import AccountsPage from "./components/AccountsPage";
 import CurrencyPicker from "./components/CurrencyPicker";
+import RestoreBackup from "./components/RestoreBackup";
 import SettingsPage from "./components/SettingsPage";
 
 type View = "accounts" | "settings";
@@ -12,8 +13,9 @@ export default function App() {
   const [view, setView] = useState<View>("accounts");
   const [error, setError] = useState<string | null>(null);
 
+  const loadCurrency = () => api.currencyGet().then(setCurrency, (e) => setError(errorMessage(e)));
   useEffect(() => {
-    api.currencyGet().then(setCurrency, (e) => setError(errorMessage(e)));
+    void loadCurrency();
   }, []);
 
   async function chooseCurrency(code: string) {
@@ -30,6 +32,9 @@ export default function App() {
         <h1>Welcome</h1>
         <p>Choose the Currency for all amounts. There is only one, and it is used everywhere in the app.</p>
         <CurrencyPicker initial="EUR" submitLabel="Continue" onSubmit={chooseCurrency} />
+        <h2 className="spaced">Or restore a Backup</h2>
+        <p className="muted small">On a new installation, restore a Backup first to get all your data back.</p>
+        <RestoreBackup onRestored={() => void loadCurrency()} />
       </main>
     );
   }
@@ -51,7 +56,7 @@ export default function App() {
         {view === "accounts" ? (
           <AccountsPage currency={currency} />
         ) : (
-          <SettingsPage currency={currency} onCurrencyChange={chooseCurrency} />
+          <SettingsPage currency={currency} onCurrencyChange={chooseCurrency} onRestored={() => void loadCurrency()} />
         )}
       </main>
     </div>
