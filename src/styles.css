@@ -79,3 +79,13 @@ nav { flex-wrap: wrap; }
 .badge.kind-income { background: var(--muted); }
 .badge.kind-expense { background: transparent; color: var(--muted); border: 1px solid var(--border); }
 .badge.refund { margin-left: 6px; }
+
+/* Home: Spendable */
+.spendable { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; }
+.headline { font-size: 2.2rem; font-weight: 700; }
+.headline.small-headline { font-size: 1.5rem; }
+.weekly { text-align: right; }
+.breakdown { width: 100%; border-collapse: collapse; }
+.breakdown td { padding: 4px 0; }
+.breakdown td:last-child { text-align: right; }
+.breakdown .total td { border-top: 1px solid var(--border); font-weight: 700; padding-top: 8px; }

@@ -163,3 +163,26 @@ pub fn transaction_set_category(
 pub fn transaction_delete(store: State<'_, AppStore>, id: String) -> CmdResult<()> {
     transactions::delete(&mut *lock(&store)?, &id).map_err(Into::into)
 }
+
+#[tauri::command]
+pub fn savings_target_get(store: State<'_, AppStore>) -> CmdResult<i64> {
+    budget_core::settings::savings_target_minor(&*lock(&store)?).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn savings_target_set(store: State<'_, AppStore>, minor: i64) -> CmdResult<()> {
+    budget_core::settings::set_savings_target(&mut *lock(&store)?, minor).map_err(Into::into)
+}
+
+/// Spendable for `period` (`YYYY-MM`). `today` (`YYYY-MM-DD`) is the UI's
+/// local date, so the Period and Week follow the user's clock.
+#[tauri::command]
+pub fn spendable_get(
+    store: State<'_, AppStore>,
+    period: String,
+    today: String,
+) -> CmdResult<budget_core::spendable::PeriodSpendable> {
+    let period = period.parse()?;
+    let today = today.parse()?;
+    budget_core::spendable::for_period(&*lock(&store)?, period, today).map_err(Into::into)
+}

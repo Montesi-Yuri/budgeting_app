@@ -78,3 +78,20 @@ pub fn set_currency(store: &mut Store, code: &str) -> Result<()> {
     }
     set(store, CURRENCY, &code)
 }
+
+const SAVINGS_TARGET: &str = "savings_target_minor";
+
+/// The Savings target: the fixed amount per Period, in minor units, that
+/// the user intends to save. It is set aside when Spendable is calculated.
+/// 0 until the user sets one.
+pub fn savings_target_minor(store: &Store) -> Result<i64> {
+    Ok(get(store, SAVINGS_TARGET)?.unwrap_or(0))
+}
+
+/// Set the Savings target (minor units per Period, not negative).
+pub fn set_savings_target(store: &mut Store, minor: i64) -> Result<()> {
+    if minor < 0 {
+        return Err(Error::invalid("The Savings target can't be negative."));
+    }
+    set(store, SAVINGS_TARGET, &minor)
+}
