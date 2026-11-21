@@ -3,6 +3,7 @@
 //! so it is shared by the desktop and Android builds and tested on its own.
 
 pub mod accounts;
+pub mod backup;
 pub mod budgets;
 pub mod categories;
 pub mod date;

@@ -6,6 +6,7 @@ import CategoriesPage from "./components/CategoriesPage";
 import CurrencyPicker from "./components/CurrencyPicker";
 import HomePage from "./components/HomePage";
 import ImportPage from "./components/ImportPage";
+import RestoreBackup from "./components/RestoreBackup";
 import SettingsPage from "./components/SettingsPage";
 import TransactionsPage from "./components/TransactionsPage";
 import UncategorisedPage from "./components/UncategorisedPage";
@@ -29,8 +30,9 @@ export default function App() {
   const [view, setView] = useState<View>("home");
   const [error, setError] = useState<string | null>(null);
 
+  const loadCurrency = () => api.currencyGet().then(setCurrency, (e) => setError(errorMessage(e)));
   useEffect(() => {
-    api.currencyGet().then(setCurrency, (e) => setError(errorMessage(e)));
+    void loadCurrency();
   }, []);
 
   async function chooseCurrency(code: string) {
@@ -47,6 +49,9 @@ export default function App() {
         <h1>Welcome</h1>
         <p>Choose the Currency for all amounts. There is only one, and it is used everywhere in the app.</p>
         <CurrencyPicker initial="EUR" submitLabel="Continue" onSubmit={chooseCurrency} />
+        <h2 className="spaced">Or restore a Backup</h2>
+        <p className="muted small">On a new installation, restore a Backup first to get all your data back.</p>
+        <RestoreBackup onRestored={() => void loadCurrency()} />
       </main>
     );
   }
@@ -69,7 +74,7 @@ export default function App() {
         {view === "transactions" && <TransactionsPage currency={currency} />}
         {view === "uncategorised" && <UncategorisedPage currency={currency} />}
         {view === "categories" && <CategoriesPage />}
-        {view === "settings" && <SettingsPage currency={currency} onCurrencyChange={chooseCurrency} />}
+        {view === "settings" && <SettingsPage currency={currency} onCurrencyChange={chooseCurrency} onRestored={() => void loadCurrency()} />}
         {view === "budgets" && <BudgetsPage currency={currency} />}
         {view === "import" && <ImportPage currency={currency} />}
       </main>

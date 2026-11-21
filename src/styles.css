@@ -100,3 +100,6 @@ nav { flex-wrap: wrap; }
 .breakdown td { padding: 4px 0; }
 .breakdown td:last-child { text-align: right; }
 .breakdown .total td { border-top: 1px solid var(--border); font-weight: 700; padding-top: 8px; }
+
+h3 { font-size: 0.95rem; margin: 16px 0 8px; }
+h2.spaced { margin-top: 32px; }

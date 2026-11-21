@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { api, AppInfo } from "../api";
+import BackupSettings from "./BackupSettings";
 import CurrencyPicker from "./CurrencyPicker";
 import SavingsTargetForm from "./SavingsTargetForm";
 
-type Props = { currency: string; onCurrencyChange: (code: string) => Promise<void> };
+type Props = {
+  currency: string;
+  onCurrencyChange: (code: string) => Promise<void>;
+  /** After a Backup is restored, data shown elsewhere may have changed. */
+  onRestored?: () => void;
+};
 
-export default function SettingsPage({ currency, onCurrencyChange }: Props) {
+export default function SettingsPage({ currency, onCurrencyChange, onRestored }: Props) {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [saved, setSaved] = useState(false);
   useEffect(() => {
@@ -32,6 +38,7 @@ export default function SettingsPage({ currency, onCurrencyChange }: Props) {
         {saved && <p className="muted">Saved.</p>}
       </section>
       <SavingsTargetForm currency={currency} />
+      <BackupSettings onRestored={onRestored} />
       {info && (
         <section className="card">
           <h2>This Device</h2>

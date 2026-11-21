@@ -80,7 +80,7 @@ impl OpKind {
         }
     }
 
-    fn parse(s: &str) -> Result<Self> {
+    pub(crate) fn parse(s: &str) -> Result<Self> {
         match s {
             "upsert" => Ok(OpKind::Upsert),
             "delete" => Ok(OpKind::Delete),
