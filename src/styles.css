@@ -79,3 +79,13 @@ nav { flex-wrap: wrap; }
 .badge.kind-income { background: var(--muted); }
 .badge.kind-expense { background: transparent; color: var(--muted); border: 1px solid var(--border); }
 .badge.refund { margin-left: 6px; }
+/* Budgets (ticket 10) */
+.budget { display: flex; flex-direction: column; gap: 6px; }
+.budget.over { border-color: var(--negative); }
+.budget-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.meter { height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.meter > span { display: block; height: 100%; background: var(--accent); }
+.meter.near > span { background: #c98a00; }
+.meter.over > span { background: var(--negative); }
+.badge.over, .badge.broken { background: var(--negative); color: #ffffff; }
+.badge.muted-badge { background: transparent; color: var(--muted); border: 1px solid var(--border); }
