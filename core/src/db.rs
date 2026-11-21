@@ -9,7 +9,10 @@ use rusqlite::Connection;
 
 use crate::error::{Error, Result};
 
-const MIGRATIONS: &[&str] = &[include_str!("../migrations/0001_init.sql")];
+const MIGRATIONS: &[&str] = &[
+    include_str!("../migrations/0001_init.sql"),
+    include_str!("../migrations/0002_categories_and_transactions.sql"),
+];
 
 /// The schema version this build of the app creates and understands.
 pub const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;

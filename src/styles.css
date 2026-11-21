@@ -63,3 +63,19 @@ button.tab { border: none; background: none; color: var(--muted); }
 button.tab.active { color: var(--text); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); border-radius: 0; }
 .actions { display: flex; gap: 8px; }
 code { font-size: 0.85em; }
+nav { flex-wrap: wrap; }
+.list { list-style: none; margin: 0 0 12px; padding: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.row-item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.row-item:first-child { border-top: none; }
+.row-item.child { padding-left: 38px; }
+.row-item .actions button { padding: 4px 10px; }
+.grow { flex: 1 1 200px; min-width: 0; }
+.inline { display: flex; gap: 8px; }
+.inline input { flex: 1; }
+.date { min-width: 6.5em; }
+.toolbar { margin-bottom: 12px; }
+.toolbar .field { flex: 0 1 260px; }
+.toolbar .net { margin: 0 0 8px; }
+.badge.kind-income { background: var(--muted); }
+.badge.kind-expense { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.badge.refund { margin-left: 6px; }

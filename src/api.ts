@@ -24,6 +24,54 @@ export type Account = NewAccount & { id: string };
 
 export type AccountWithBalance = Account & { balance_minor: number };
 
+export type CategoryKind = "income" | "expense";
+
+export type NewCategory = {
+  name: string;
+  kind: CategoryKind;
+  /** Create it as a child of this top-level Category. */
+  parent_id: string | null;
+};
+
+export type Category = {
+  id: string;
+  name: string;
+  kind: CategoryKind;
+  parent_id: string | null;
+  color: string | null;
+  /** Display order among siblings. */
+  position: number;
+};
+
+export type NewManualTransaction = {
+  account_id: string;
+  /** YYYY-MM-DD */
+  date: string;
+  /** Signed minor units: negative = money out of the Account. */
+  amount_minor: number;
+  description: string;
+  category_id: string | null;
+  note: string | null;
+};
+
+export type TransactionEdit = NewManualTransaction & { id: string };
+
+export type Transaction = TransactionEdit & {
+  source: "import" | "manual";
+  import_id: string | null;
+  fingerprint: string | null;
+  balance_after_minor: number | null;
+  /** Who set the Category; Rules never overwrite "user". */
+  category_source: "user" | "rule" | null;
+};
+
+/** A Transaction in a list. A null category_name means Uncategorised. */
+export type TransactionView = Transaction & {
+  account_name: string;
+  category_name: string | null;
+  category_kind: CategoryKind | null;
+};
+
 export type AppInfo = { device_id: string; schema_version: number };
 
 /** What a failed command rejects with. */
@@ -42,4 +90,19 @@ export const api = {
   accountCreate: (account: NewAccount) => invoke<Account>("account_create", { account }),
   accountUpdate: (account: Account) => invoke<Account>("account_update", { account }),
   accountDelete: (id: string) => invoke<void>("account_delete", { id }),
+  categoriesList: () => invoke<Category[]>("categories_list"),
+  categoryCreate: (category: NewCategory) => invoke<Category>("category_create", { category }),
+  categoryRename: (id: string, name: string) => invoke<Category>("category_rename", { id, name }),
+  /** Move to `index` among its siblings. */
+  categoryMove: (id: string, index: number) => invoke<Category>("category_move", { id, index }),
+  categoryDelete: (id: string) => invoke<void>("category_delete", { id }),
+  transactionsList: (accountId: string) => invoke<TransactionView[]>("transactions_list", { account: accountId }),
+  transactionsUncategorised: () => invoke<TransactionView[]>("transactions_uncategorised"),
+  transactionCreate: (transaction: NewManualTransaction) =>
+    invoke<Transaction>("transaction_create", { transaction }),
+  transactionUpdate: (transaction: TransactionEdit) => invoke<Transaction>("transaction_update", { transaction }),
+  /** Set (or clear, with null) a Category by hand. */
+  transactionSetCategory: (id: string, categoryId: string | null) =>
+    invoke<Transaction>("transaction_set_category", { id, category: categoryId }),
+  transactionDelete: (id: string) => invoke<void>("transaction_delete", { id }),
 };

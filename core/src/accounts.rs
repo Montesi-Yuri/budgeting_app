@@ -94,8 +94,8 @@ pub struct NewAccount {
 pub struct AccountWithBalance {
     #[serde(flatten)]
     pub account: Account,
-    /// Today's balance in minor units. For now the Opening balance, since
-    /// there are no Transactions yet (ticket 02).
+    /// The Opening balance plus all the Account's Transactions after the
+    /// opening date, in minor units.
     pub balance_minor: i64,
 }
 
@@ -166,17 +166,27 @@ fn save_with_single_main(w: &mut Writer<'_>, account: &Account) -> Result<()> {
 /// Every live Account with its balance: the main Account first, then by name.
 pub fn list(store: &Store) -> Result<Vec<AccountWithBalance>> {
     let accounts = live_accounts(store.conn())?;
-    Ok(accounts
+    accounts
         .into_iter()
-        .map(|account| AccountWithBalance {
-            balance_minor: balance_minor(&account),
-            account,
+        .map(|account| {
+            Ok(AccountWithBalance {
+                balance_minor: balance_minor(store.conn(), &account)?,
+                account,
+            })
         })
-        .collect())
+        .collect()
 }
 
-fn balance_minor(account: &Account) -> i64 {
-    account.opening_minor
+/// The Opening balance plus every live Transaction dated after the opening
+/// date (sync-design §1.7).
+fn balance_minor(conn: &Connection, account: &Account) -> Result<i64> {
+    let after_opening: i64 = conn.query_row(
+        "SELECT COALESCE(SUM(amount_minor), 0) FROM txn
+         WHERE account_id = ?1 AND deleted = 0 AND date > ?2",
+        params![account.id, account.opening_date],
+        |r| r.get(0),
+    )?;
+    Ok(account.opening_minor + after_opening)
 }
 
 fn live_accounts(conn: &Connection) -> Result<Vec<Account>> {

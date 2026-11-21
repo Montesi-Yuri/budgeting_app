@@ -6,6 +6,10 @@
 use std::sync::Mutex;
 
 use budget_core::accounts::{self, Account, AccountWithBalance, NewAccount};
+use budget_core::categories::{self, Category, NewCategory};
+use budget_core::transactions::{
+    self, NewManualTransaction, Transaction, TransactionEdit, TransactionView,
+};
 use budget_core::{settings, Store};
 use serde::Serialize;
 use tauri::State;
@@ -86,4 +90,76 @@ pub fn account_update(store: State<'_, AppStore>, account: Account) -> CmdResult
 #[tauri::command]
 pub fn account_delete(store: State<'_, AppStore>, id: String) -> CmdResult<()> {
     accounts::delete(&mut *lock(&store)?, &id).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn categories_list(store: State<'_, AppStore>) -> CmdResult<Vec<Category>> {
+    categories::list(&*lock(&store)?).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn category_create(store: State<'_, AppStore>, category: NewCategory) -> CmdResult<Category> {
+    categories::create(&mut *lock(&store)?, category).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn category_rename(
+    store: State<'_, AppStore>,
+    id: String,
+    name: String,
+) -> CmdResult<Category> {
+    categories::rename(&mut *lock(&store)?, &id, &name).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn category_move(store: State<'_, AppStore>, id: String, index: usize) -> CmdResult<Category> {
+    categories::move_to(&mut *lock(&store)?, &id, index).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn category_delete(store: State<'_, AppStore>, id: String) -> CmdResult<()> {
+    categories::delete(&mut *lock(&store)?, &id).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn transactions_list(
+    store: State<'_, AppStore>,
+    account: String,
+) -> CmdResult<Vec<TransactionView>> {
+    transactions::list_for_account(&*lock(&store)?, &account).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn transactions_uncategorised(store: State<'_, AppStore>) -> CmdResult<Vec<TransactionView>> {
+    transactions::list_uncategorised(&*lock(&store)?).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn transaction_create(
+    store: State<'_, AppStore>,
+    transaction: NewManualTransaction,
+) -> CmdResult<Transaction> {
+    transactions::create_manual(&mut *lock(&store)?, transaction).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn transaction_update(
+    store: State<'_, AppStore>,
+    transaction: TransactionEdit,
+) -> CmdResult<Transaction> {
+    transactions::update(&mut *lock(&store)?, transaction).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn transaction_set_category(
+    store: State<'_, AppStore>,
+    id: String,
+    category: Option<String>,
+) -> CmdResult<Transaction> {
+    transactions::set_category(&mut *lock(&store)?, &id, category.as_deref()).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn transaction_delete(store: State<'_, AppStore>, id: String) -> CmdResult<()> {
+    transactions::delete(&mut *lock(&store)?, &id).map_err(Into::into)
 }

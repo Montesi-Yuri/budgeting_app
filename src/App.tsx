@@ -1,10 +1,21 @@
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "./api";
 import AccountsPage from "./components/AccountsPage";
+import CategoriesPage from "./components/CategoriesPage";
 import CurrencyPicker from "./components/CurrencyPicker";
 import SettingsPage from "./components/SettingsPage";
+import TransactionsPage from "./components/TransactionsPage";
+import UncategorisedPage from "./components/UncategorisedPage";
 
-type View = "accounts" | "settings";
+type View = "accounts" | "transactions" | "uncategorised" | "categories" | "settings";
+
+const VIEWS: { view: View; label: string }[] = [
+  { view: "accounts", label: "Accounts" },
+  { view: "transactions", label: "Transactions" },
+  { view: "uncategorised", label: "Uncategorised" },
+  { view: "categories", label: "Categories" },
+  { view: "settings", label: "Settings" },
+];
 
 export default function App() {
   // undefined = loading, null = not chosen yet (first launch)
@@ -39,20 +50,19 @@ export default function App() {
       <header className="topbar">
         <span className="brand">Budget</span>
         <nav>
-          <button className={view === "accounts" ? "tab active" : "tab"} onClick={() => setView("accounts")}>
-            Accounts
-          </button>
-          <button className={view === "settings" ? "tab active" : "tab"} onClick={() => setView("settings")}>
-            Settings
-          </button>
+          {VIEWS.map((v) => (
+            <button key={v.view} className={view === v.view ? "tab active" : "tab"} onClick={() => setView(v.view)}>
+              {v.label}
+            </button>
+          ))}
         </nav>
       </header>
       <main className="page">
-        {view === "accounts" ? (
-          <AccountsPage currency={currency} />
-        ) : (
-          <SettingsPage currency={currency} onCurrencyChange={chooseCurrency} />
-        )}
+        {view === "accounts" && <AccountsPage currency={currency} />}
+        {view === "transactions" && <TransactionsPage currency={currency} />}
+        {view === "uncategorised" && <UncategorisedPage currency={currency} />}
+        {view === "categories" && <CategoriesPage />}
+        {view === "settings" && <SettingsPage currency={currency} onCurrencyChange={chooseCurrency} />}
       </main>
     </div>
   );
