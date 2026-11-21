@@ -6,18 +6,17 @@
 //!
 //! Spending comes from [`totals::for_dates`], so Refunds reduce it and
 //! whatever `totals` leaves out (Transfers, once ticket 06 lands) is left out
-//! here too.
-//!
-//! This module also has small Period and Week helpers ([`period_of`],
-//! [`week_of`]); "today" is always passed in.
+//! here too. The Period and Week come from [`crate::period`]; "today" is
+//! always passed in.
 
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
 use crate::categories::{self, CategoryKind};
-use crate::date;
+use crate::date::{self, Date};
 use crate::error::{Error, Result};
 use crate::hlc::Hlc;
+use crate::period::{Period, Week};
 use crate::store::{Store, SyncedRow};
 use crate::totals;
 
@@ -276,8 +275,9 @@ pub struct BudgetProgress {
 /// Every live Budget with its progress on `today` (`YYYY-MM-DD`).
 pub fn progress(store: &Store, today: &str) -> Result<Vec<BudgetProgress>> {
     let all_categories = categories::list(store)?;
-    let period = period_of(today)?;
-    let week = week_of(today)?;
+    let day: Date = today.parse()?;
+    let period = DateRange::of_period(Period::containing(day));
+    let week = DateRange::of_week(Week::containing(day));
     live_budgets(store.conn())?
         .into_iter()
         .map(|budget| {
@@ -331,59 +331,18 @@ pub struct DateRange {
     pub to: String,
 }
 
-/// The Period (calendar month) that contains `day`.
-pub fn period_of(day: &str) -> Result<DateRange> {
-    let (y, m, _) = parse(day)?;
-    Ok(DateRange {
-        from: format_ymd(y, m, 1),
-        to: format_ymd(y, m, days_in_month(y, m)),
-    })
-}
-
-/// The Week (Monday to Sunday, cut at the Period boundary) that contains `day`.
-pub fn week_of(day: &str) -> Result<DateRange> {
-    let (y, m, d) = parse(day)?;
-    // 0 = Monday ... 6 = Sunday
-    let weekday = (days_from_civil(y, m, d) + 3).rem_euclid(7) as u32;
-    let monday = d as i64 - weekday as i64;
-    let sunday = monday + 6;
-    Ok(DateRange {
-        from: format_ymd(y, m, monday.max(1) as u32),
-        to: format_ymd(y, m, sunday.min(days_in_month(y, m) as i64) as u32),
-    })
-}
-
-fn parse(day: &str) -> Result<(i32, u32, u32)> {
-    if !date::is_valid(day) {
-        return Err(Error::invalid(format!(
-            "{day:?} is not a date (YYYY-MM-DD)."
-        )));
+impl DateRange {
+    fn of_period(period: Period) -> DateRange {
+        DateRange {
+            from: period.first_day().to_string(),
+            to: period.last_day().to_string(),
+        }
     }
-    let num = |r: std::ops::Range<usize>| day[r].parse::<u32>().unwrap_or(0);
-    Ok((num(0..4) as i32, num(5..7), num(8..10)))
-}
 
-fn format_ymd(y: i32, m: u32, d: u32) -> String {
-    format!("{y:04}-{m:02}-{d:02}")
-}
-
-fn days_in_month(y: i32, m: u32) -> u32 {
-    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
-    match m {
-        4 | 6 | 9 | 11 => 30,
-        2 if leap => 29,
-        2 => 28,
-        _ => 31,
+    fn of_week(week: Week) -> DateRange {
+        DateRange {
+            from: week.first_day().to_string(),
+            to: week.last_day().to_string(),
+        }
     }
-}
-
-/// Days since 1970-01-01 (a Thursday), after Howard Hinnant's algorithm.
-fn days_from_civil(y: i32, m: u32, d: u32) -> i64 {
-    let y = if m <= 2 { y - 1 } else { y } as i64;
-    let era = y.div_euclid(400);
-    let yoe = y - era * 400;
-    let m = m as i64;
-    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d as i64 - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    era * 146_097 + doe - 719_468
 }

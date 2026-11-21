@@ -19,30 +19,6 @@ fn range(from: &str, to: &str) -> DateRange {
     }
 }
 
-#[test]
-fn a_week_runs_monday_to_sunday_and_is_cut_at_the_period_boundary() {
-    // 2026-11-21 is a Saturday.
-    assert_eq!(
-        budgets::week_of("2026-11-21").unwrap(),
-        range("2026-11-16", "2026-11-22")
-    );
-    // Monday 30 November: the last Week of November is one day long.
-    assert_eq!(
-        budgets::week_of("2026-11-30").unwrap(),
-        range("2026-11-30", "2026-11-30")
-    );
-    // Tuesday 1 December: the first Week of December starts on the 1st.
-    assert_eq!(
-        budgets::week_of("2026-12-03").unwrap(),
-        range("2026-12-01", "2026-12-06")
-    );
-    // Sunday 1 November: a one-day first Week.
-    assert_eq!(
-        budgets::week_of("2026-11-01").unwrap(),
-        range("2026-11-01", "2026-11-01")
-    );
-}
-
 struct Fixture {
     store: Store,
     account: Account,
