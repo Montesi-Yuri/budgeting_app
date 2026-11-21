@@ -414,6 +414,16 @@ The same Noise IK handshake is used with no token. After the handshake, the PC c
 
 **Unpairing** deletes the peer's `device` row, after which that key is rejected.
 
+### 2.4 As built (ticket 14)
+
+- `budget_core::sync::SyncNode` holds Pairing and Sync for one Device, with no Tauri dependency: `listen(addr)` returns a `Listener` (Sync on while it lives), `start_pairing(addrs)` returns the `PairingPayload`, `join(text)` pairs and runs the first Sync, `sync_with(device_id)` is "Sync now", and `peers()` / `unpair(id)` manage the paired Devices. `SyncEvents` reports progress, Pairings and finished Syncs, including those the other Device started.
+- On desktop the payload text is pasted instead of scanned. Its addresses are the PC's private IPv4 addresses (`sync::local_addresses`), or `127.0.0.1` when there is none.
+- The listener reads the first handshake message, which carries the initiator's static key, before it answers. If the key is not a paired Device and no pairing is open, it closes the connection without sending a byte. While a pairing is open, an unknown key completes the handshake but must send `PairRequest` first. A paired Device may also send `PairRequest` with a valid token, which refreshes its row.
+- A rejected token is answered with `Error{PairingExpired}` or `Error{PairingInvalid}`. A successful Pairing uses up the token, and a new "Pair new device" replaces the previous token.
+- The private key is kept in a file next to the database (`sync.key`), not in SQLite, so it is not in a Backup. Moving it to the Windows credential store and the Android Keystore is still to do. The per-Device Sync settings (on/off, port) are in `sync.json` in the same folder.
+- The joining Device stores the address that worked as the listener's `last_addr`. The listener stores no address for a Device that connects to it, so "Sync now" is started from the joining Device.
+- `device_id` in Hello must match the paired Device the key belongs to.
+
 ---
 
 ## 3. Sync protocol
@@ -423,6 +433,7 @@ The same Noise IK handshake is used with no token. After the handshake, the PC c
 - TCP to the PC's `port`. The default is 47321; it is configurable, and the app adds a Windows Firewall rule for *private* networks only.
 - After the Noise handshake, all data is sent as Noise transport messages. Each frame is `u16 length (big-endian) + ciphertext`, and the plaintext is capped at about 64 KB, which is Noise's limit.
 - The plaintext of each frame is one CBOR `Msg`.
+- As built, the networking is blocking `std::net` with threads instead of `tokio` (see [ADR 0003](adr/0003-blocking-network-transport.md)). Handshake messages use the same `u16` length frames. A writer thread sends the queued frames, so a side never waits for the other side to read while it sends all its batches. Reads and writes time out after 30 s, and connecting times out after 3 s per address (`SyncNode::set_connect_timeout`).
 
 ```rust
 #[derive(Serialize, Deserialize)]

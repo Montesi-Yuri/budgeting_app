@@ -1,5 +1,5 @@
 use crate::hlc::ParseHlcError;
-use crate::sync::SyncError;
+use crate::sync::{PairingError, SyncError};
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -22,6 +22,11 @@ pub enum Error {
     SchemaTooNew { found: u32, supported: u32 },
     #[error(transparent)]
     Sync(#[from] SyncError),
+    #[error(transparent)]
+    Pairing(#[from] PairingError),
+    /// A network or encryption failure while talking to another Device.
+    #[error("network error: {0}")]
+    Net(String),
 }
 
 impl Error {

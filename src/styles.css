@@ -79,3 +79,11 @@ nav { flex-wrap: wrap; }
 .badge.kind-income { background: var(--muted); }
 .badge.kind-expense { background: transparent; color: var(--muted); border: 1px solid var(--border); }
 .badge.refund { margin-left: 6px; }
+/* Sync (Settings) */
+h3 { font-size: 0.95rem; margin: 16px 0 8px; }
+textarea.code { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; word-break: break-all; margin-bottom: 8px; }
+input.port { width: 6em; }
+.peers { list-style: none; margin: 0; padding: 0; }
+.peers li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.peers li:first-child { border-top: none; }
+.peers .actions { margin-left: auto; }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, AppInfo } from "../api";
 import CurrencyPicker from "./CurrencyPicker";
+import SyncSettings from "./SyncSettings";
 
 type Props = { currency: string; onCurrencyChange: (code: string) => Promise<void> };
 
@@ -30,6 +31,7 @@ export default function SettingsPage({ currency, onCurrencyChange }: Props) {
         />
         {saved && <p className="muted">Saved.</p>}
       </section>
+      <SyncSettings />
       {info && (
         <section className="card">
           <h2>This Device</h2>
