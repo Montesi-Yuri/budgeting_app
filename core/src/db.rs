@@ -12,6 +12,8 @@ use crate::error::{Error, Result};
 const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_categories_and_transactions.sql"),
+    // 0003 and 0004 are reserved for tickets 13 and 12.
+    include_str!("../migrations/0005_imports.sql"),
 ];
 
 /// The schema version this build of the app creates and understands.

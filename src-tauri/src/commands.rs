@@ -7,6 +7,7 @@ use std::sync::Mutex;
 
 use budget_core::accounts::{self, Account, AccountWithBalance, NewAccount};
 use budget_core::categories::{self, Category, NewCategory};
+use budget_core::imports::{self, ImportBatch, ImportProfile, ImportSummary, Preview};
 use budget_core::transactions::{
     self, NewManualTransaction, Transaction, TransactionEdit, TransactionView,
 };
@@ -162,4 +163,53 @@ pub fn transaction_set_category(
 #[tauri::command]
 pub fn transaction_delete(store: State<'_, AppStore>, id: String) -> CmdResult<()> {
     transactions::delete(&mut *lock(&store)?, &id).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn import_profile_get(
+    store: State<'_, AppStore>,
+    account: String,
+) -> CmdResult<Option<ImportProfile>> {
+    imports::profile_for_account(&*lock(&store)?, &account).map_err(Into::into)
+}
+
+/// A new, unsaved profile for an Account, to start the setup step from.
+#[tauri::command]
+pub fn import_profile_draft(account: String) -> ImportProfile {
+    ImportProfile::draft(&account)
+}
+
+#[tauri::command]
+pub fn import_profile_save(
+    store: State<'_, AppStore>,
+    profile: ImportProfile,
+) -> CmdResult<ImportProfile> {
+    imports::save_profile(&mut *lock(&store)?, profile).map_err(Into::into)
+}
+
+/// `file` is the CSV's bytes. Nothing is saved.
+#[tauri::command]
+pub fn import_preview(
+    store: State<'_, AppStore>,
+    profile: ImportProfile,
+    file: Vec<u8>,
+) -> CmdResult<Preview> {
+    imports::preview(&*lock(&store)?, &profile, &file).map_err(Into::into)
+}
+
+/// Import the CSV's bytes with the Account's saved profile. The file itself
+/// is not kept.
+#[tauri::command]
+pub fn import_run(
+    store: State<'_, AppStore>,
+    account: String,
+    file_name: String,
+    file: Vec<u8>,
+) -> CmdResult<ImportSummary> {
+    imports::import_file(&mut *lock(&store)?, &account, &file_name, &file).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn imports_history(store: State<'_, AppStore>, account: String) -> CmdResult<Vec<ImportBatch>> {
+    imports::history(&*lock(&store)?, &account).map_err(Into::into)
 }
