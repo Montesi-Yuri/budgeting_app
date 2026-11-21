@@ -299,6 +299,8 @@ fn apply_remote(tx: &Transaction, op: &Op) -> Result<()> {
 
 A delete is an op with a newer HLC, so a later edit on the other device can "undelete" the row. This is a reasonable rule for a personal app.
 
+As built (`core/src/sync/apply.rs`), a row's state is a function of the set of ops for it in the log, so any arrival order gives the same row: the newest op decides `updated_hlc` and `deleted`, and the newest upsert decides the columns. This covers a case the sketch above misses. With three Devices, a delete can arrive before the upsert that created the row. The delete is kept in the log, and when the older upsert arrives the row is created as a tombstone. Remote entity names map back to their row types through `SYNCED_ENTITIES` in `core/src/sync/registry.rs`.
+
 ### 1.5 Imports on both devices: deterministic IDs
 
 If the same bank CSV is imported on the PC *and* on the phone, random UUIDs would create duplicates. To prevent this, imported transactions get a **deterministic** ID:

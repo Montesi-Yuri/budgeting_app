@@ -10,6 +10,7 @@ pub mod error;
 pub mod hlc;
 pub mod settings;
 pub mod store;
+pub mod sync;
 pub mod totals;
 pub mod transactions;
 
