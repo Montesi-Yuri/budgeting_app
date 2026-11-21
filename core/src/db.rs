@@ -12,6 +12,7 @@ use crate::error::{Error, Result};
 const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_categories_and_transactions.sql"),
+    include_str!("../migrations/0004_local_setting.sql"),
 ];
 
 /// The schema version this build of the app creates and understands.

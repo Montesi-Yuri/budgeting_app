@@ -1,6 +1,7 @@
 // Typed wrappers around the Rust commands (src-tauri/src/commands.rs).
 // Types mirror budget_core; amounts are integer minor units of the Currency.
 import { invoke } from "@tauri-apps/api/core";
+import type { RestoreReport } from "./backup";
 
 export type AccountKind = "current" | "savings" | "credit_card";
 
@@ -72,6 +73,15 @@ export type TransactionView = Transaction & {
   category_kind: CategoryKind | null;
 };
 
+/** The weekly automatic Backup (PC only). */
+export type BackupSchedule = {
+  available: boolean;
+  folder: string | null;
+  /** File name of the newest weekly Backup in the folder. */
+  latest: string | null;
+  last_error: string | null;
+};
+
 export type AppInfo = { device_id: string; schema_version: number };
 
 /** What a failed command rejects with. */
@@ -105,4 +115,10 @@ export const api = {
   transactionSetCategory: (id: string, categoryId: string | null) =>
     invoke<Transaction>("transaction_set_category", { id, category: categoryId }),
   transactionDelete: (id: string) => invoke<void>("transaction_delete", { id }),
+  backupExport: (path: string, passphrase: string) => invoke<void>("backup_export", { path, passphrase }),
+  backupRestore: (path: string, passphrase: string) =>
+    invoke<RestoreReport>("backup_restore", { path, passphrase }),
+  backupScheduleGet: () => invoke<BackupSchedule>("backup_schedule_get"),
+  backupScheduleSet: (folder: string | null, passphrase: string | null) =>
+    invoke<BackupSchedule>("backup_schedule_set", { folder, passphrase }),
 };

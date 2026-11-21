@@ -489,11 +489,11 @@ Properties:
 
 ## 4. Backup
 
-A Backup is the **op log plus the `device` rows of the paired peers**, serialised as CBOR and encrypted with `age` using a passphrase. It does not include the Device's own private key.
+A Backup is the **whole op log** (every op of every origin), serialised as CBOR and encrypted with `age` using a passphrase. It contains no `device` rows and no keys: not the Device's own private key, and not the paired peers either, since a restored Device has to be paired again anyway. The code is `core/src/backup.rs`.
 
 - **Export:** the "Export backup" command writes `budget-YYYY-MM-DD.bsync.age` to a file the user chooses.
-- **Automatic (PC only):** once a week, on app start or while the app is running, the PC writes the same file to the per-device `backup_dir`, which can be a OneDrive folder. It keeps the last 8 backups. The passphrase is stored in Windows Credential Manager, so the automatic backup needs no prompt.
-- **Restore:** decrypt the file, then run `apply_remote` for every op. Because ops are idempotent, a Backup can be restored into an empty DB (a new or reinstalled Device) or into an existing DB. Restoring into an existing DB only adds what's missing. The restoring Device keeps its own `device_id`, and its peers need to be paired again.
+- **Automatic (PC only):** once a week, on app start or while the app is running, the PC writes the same file to the per-device `backup_dir`, which can be a OneDrive folder. It keeps the last 8 backups. `backup_dir` lives in the `local_setting` table (per-device, never synced or backed up), and "once a week" means the newest `budget-YYYY-MM-DD.bsync.age` in the folder is at least 7 days old. The passphrase is stored in Windows Credential Manager, so the automatic backup needs no prompt.
+- **Restore:** decrypt the file, then pass all its ops to `Store::apply_remote`, the same apply path a Sync uses (§1.4), in one DB transaction. A wrong passphrase, a file that isn't a Backup, a Backup from a newer schema, or a change to an entity that isn't in `SYNCED_ENTITIES` is refused before anything is applied, so nothing changes. New synced tables need no backup code: registering them for Sync is enough. Because ops are idempotent, a Backup can be restored into an empty DB (a new or reinstalled Device) or into an existing DB. Restoring into an existing DB only adds what's missing, and the restore reports how many changes were added and how many were already present. The clock observes every restored op, so later local edits win. The restoring Device keeps its own `device_id`, and its peers need to be paired again.
 
 ## 5. Tauri commands (UI ↔ Rust)
 

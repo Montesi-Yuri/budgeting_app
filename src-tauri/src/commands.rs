@@ -21,13 +21,15 @@ pub type AppStore = Mutex<Store>;
 #[derive(Debug, Serialize)]
 pub struct CommandError {
     kind: &'static str,
-    message: String,
+    pub(crate) message: String,
 }
 
 impl From<budget_core::Error> for CommandError {
     fn from(err: budget_core::Error) -> Self {
         let kind = match err {
-            budget_core::Error::Invalid(_) => "invalid",
+            budget_core::Error::Invalid(_)
+            | budget_core::Error::WrongPassphrase
+            | budget_core::Error::NotABackup(_) => "invalid",
             budget_core::Error::NotFound { .. } => "not_found",
             _ => "internal",
         };
@@ -38,9 +40,20 @@ impl From<budget_core::Error> for CommandError {
     }
 }
 
-type CmdResult<T> = Result<T, CommandError>;
+impl CommandError {
+    pub(crate) fn new(kind: &'static str, message: impl Into<String>) -> Self {
+        CommandError {
+            kind,
+            message: message.into(),
+        }
+    }
+}
 
-fn lock<'a>(store: &'a State<'_, AppStore>) -> CmdResult<std::sync::MutexGuard<'a, Store>> {
+pub(crate) type CmdResult<T> = Result<T, CommandError>;
+
+pub(crate) fn lock<'a>(
+    store: &'a State<'_, AppStore>,
+) -> CmdResult<std::sync::MutexGuard<'a, Store>> {
     store.lock().map_err(|_| CommandError {
         kind: "internal",
         message: "the database is unavailable".into(),

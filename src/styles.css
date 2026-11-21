@@ -79,3 +79,5 @@ nav { flex-wrap: wrap; }
 .badge.kind-income { background: var(--muted); }
 .badge.kind-expense { background: transparent; color: var(--muted); border: 1px solid var(--border); }
 .badge.refund { margin-left: 6px; }
+h3 { font-size: 0.95rem; margin: 16px 0 8px; }
+h2.spaced { margin-top: 32px; }

@@ -22,6 +22,14 @@ pub enum Error {
     SchemaTooNew { found: u32, supported: u32 },
     #[error(transparent)]
     Sync(#[from] SyncError),
+    /// The Backup's passphrase is not the one it was made with.
+    #[error("The passphrase is wrong for this Backup. Nothing was changed.")]
+    WrongPassphrase,
+    /// The file is not a Backup this app can read.
+    #[error("This file is not a Backup: {0}. Nothing was changed.")]
+    NotABackup(String),
+    #[error("file error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 impl Error {
