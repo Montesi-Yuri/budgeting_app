@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "./api";
 import AccountsPage from "./components/AccountsPage";
+import BudgetsPage from "./components/BudgetsPage";
 import CategoriesPage from "./components/CategoriesPage";
 import CurrencyPicker from "./components/CurrencyPicker";
 import SettingsPage from "./components/SettingsPage";
 import TransactionsPage from "./components/TransactionsPage";
 import UncategorisedPage from "./components/UncategorisedPage";
 
-type View = "accounts" | "transactions" | "uncategorised" | "categories" | "settings";
+type View = "accounts" | "transactions" | "uncategorised" | "categories" | "settings" | "budgets";
 
 const VIEWS: { view: View; label: string }[] = [
   { view: "accounts", label: "Accounts" },
@@ -15,6 +16,7 @@ const VIEWS: { view: View; label: string }[] = [
   { view: "uncategorised", label: "Uncategorised" },
   { view: "categories", label: "Categories" },
   { view: "settings", label: "Settings" },
+  { view: "budgets", label: "Budgets" },
 ];
 
 export default function App() {
@@ -63,6 +65,7 @@ export default function App() {
         {view === "uncategorised" && <UncategorisedPage currency={currency} />}
         {view === "categories" && <CategoriesPage />}
         {view === "settings" && <SettingsPage currency={currency} onCurrencyChange={chooseCurrency} />}
+        {view === "budgets" && <BudgetsPage currency={currency} />}
       </main>
     </div>
   );

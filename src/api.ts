@@ -72,6 +72,38 @@ export type TransactionView = Transaction & {
   category_kind: CategoryKind | null;
 };
 
+export type BudgetPer = "period" | "week";
+
+export type NewBudget = {
+  /** An expense Category; a parent covers its children. */
+  category_id: string;
+  per: BudgetPer;
+  /** The limit per Period or Week, positive minor units. */
+  amount_minor: number;
+  /** YYYY-MM-DD: the first day it applies. */
+  valid_from: string;
+};
+
+export type BudgetEdit = NewBudget & { id: string };
+
+/** valid_to: the last day it applies, null until it is ended. */
+export type Budget = BudgetEdit & { valid_to: string | null };
+
+/** broken: its Category was deleted; it is not applied until another is picked. */
+export type BudgetState = "active" | "upcoming" | "ended" | "broken";
+
+export type BudgetProgress = {
+  budget: Budget;
+  state: BudgetState;
+  /** The current Period or Week; null unless active. */
+  range: { from: string; to: string } | null;
+  /** Spending in range, reduced by Refunds. */
+  spent_minor: number;
+  /** Negative when over. */
+  left_minor: number;
+  over: boolean;
+};
+
 export type AppInfo = { device_id: string; schema_version: number };
 
 /** What a failed command rejects with. */
@@ -105,4 +137,11 @@ export const api = {
   transactionSetCategory: (id: string, categoryId: string | null) =>
     invoke<Transaction>("transaction_set_category", { id, category: categoryId }),
   transactionDelete: (id: string) => invoke<void>("transaction_delete", { id }),
+  /** Every Budget with its progress on `today` (YYYY-MM-DD). */
+  budgetsProgress: (today: string) => invoke<BudgetProgress[]>("budgets_progress", { today }),
+  budgetCreate: (budget: NewBudget) => invoke<Budget>("budget_create", { budget }),
+  budgetUpdate: (budget: BudgetEdit) => invoke<Budget>("budget_update", { budget }),
+  /** lastDay: the last day the Budget applies. */
+  budgetEnd: (id: string, lastDay: string) => invoke<Budget>("budget_end", { id, lastDay }),
+  budgetDelete: (id: string) => invoke<void>("budget_delete", { id }),
 };

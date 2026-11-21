@@ -163,3 +163,43 @@ pub fn transaction_set_category(
 pub fn transaction_delete(store: State<'_, AppStore>, id: String) -> CmdResult<()> {
     transactions::delete(&mut *lock(&store)?, &id).map_err(Into::into)
 }
+
+// ----- Budgets (ticket 10) -----
+
+#[tauri::command]
+pub fn budgets_progress(
+    store: State<'_, AppStore>,
+    today: String,
+) -> CmdResult<Vec<budget_core::budgets::BudgetProgress>> {
+    budget_core::budgets::progress(&*lock(&store)?, &today).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn budget_create(
+    store: State<'_, AppStore>,
+    budget: budget_core::budgets::NewBudget,
+) -> CmdResult<budget_core::budgets::Budget> {
+    budget_core::budgets::create(&mut *lock(&store)?, budget).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn budget_update(
+    store: State<'_, AppStore>,
+    budget: budget_core::budgets::BudgetEdit,
+) -> CmdResult<budget_core::budgets::Budget> {
+    budget_core::budgets::update(&mut *lock(&store)?, budget).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn budget_end(
+    store: State<'_, AppStore>,
+    id: String,
+    last_day: String,
+) -> CmdResult<budget_core::budgets::Budget> {
+    budget_core::budgets::end(&mut *lock(&store)?, &id, &last_day).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn budget_delete(store: State<'_, AppStore>, id: String) -> CmdResult<()> {
+    budget_core::budgets::delete(&mut *lock(&store)?, &id).map_err(Into::into)
+}
