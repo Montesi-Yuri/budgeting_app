@@ -12,6 +12,7 @@ use crate::error::{Error, Result};
 const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_categories_and_transactions.sql"),
+    include_str!("../migrations/0005_imports.sql"),
     include_str!("../migrations/0007_budgets.sql"),
 ];
 
