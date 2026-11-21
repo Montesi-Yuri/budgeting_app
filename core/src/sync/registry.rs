@@ -8,6 +8,7 @@
 use rusqlite::Connection;
 
 use crate::accounts::Account;
+use crate::budgets::Budget;
 use crate::categories::Category;
 use crate::error::{Error, Result};
 use crate::hlc::Hlc;
@@ -21,6 +22,7 @@ pub const SYNCED_ENTITIES: &[SyncedEntity] = &[
     entity::<Account>(),
     entity::<Category>(),
     entity::<Transaction>(),
+    entity::<Budget>(),
 ];
 
 /// One registered synced entity: its table and how to save a row decoded
