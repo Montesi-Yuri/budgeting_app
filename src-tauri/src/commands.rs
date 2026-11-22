@@ -289,3 +289,57 @@ pub fn import_run(
 pub fn imports_history(store: State<'_, AppStore>, account: String) -> CmdResult<Vec<ImportBatch>> {
     imports::history(&*lock(&store)?, &account).map_err(Into::into)
 }
+
+#[tauri::command]
+pub fn rules_list(store: State<'_, AppStore>) -> CmdResult<Vec<budget_core::rules::RuleView>> {
+    budget_core::rules::list(&*lock(&store)?).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn rule_create(
+    store: State<'_, AppStore>,
+    rule: budget_core::rules::NewRule,
+) -> CmdResult<budget_core::rules::Rule> {
+    budget_core::rules::create(&mut *lock(&store)?, rule).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn rule_update(
+    store: State<'_, AppStore>,
+    rule: budget_core::rules::RuleEdit,
+) -> CmdResult<budget_core::rules::Rule> {
+    budget_core::rules::update(&mut *lock(&store)?, rule).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn rule_delete(store: State<'_, AppStore>, id: String) -> CmdResult<()> {
+    budget_core::rules::delete(&mut *lock(&store)?, &id).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn rule_move(
+    store: State<'_, AppStore>,
+    id: String,
+    index: usize,
+) -> CmdResult<budget_core::rules::Rule> {
+    budget_core::rules::move_to(&mut *lock(&store)?, &id, index).map_err(Into::into)
+}
+
+/// The existing Transactions the Rule would re-categorise. Nothing is changed.
+#[tauri::command]
+pub fn rule_recategorise_preview(
+    store: State<'_, AppStore>,
+    id: String,
+) -> CmdResult<Vec<TransactionView>> {
+    budget_core::rules::recategorise_preview(&*lock(&store)?, &id).map_err(Into::into)
+}
+
+/// Apply the Rule to the Transactions the user confirmed.
+#[tauri::command]
+pub fn rule_recategorise(
+    store: State<'_, AppStore>,
+    id: String,
+    transactions: Vec<String>,
+) -> CmdResult<usize> {
+    budget_core::rules::recategorise(&mut *lock(&store)?, &id, &transactions).map_err(Into::into)
+}

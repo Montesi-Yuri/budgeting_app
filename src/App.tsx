@@ -7,11 +7,12 @@ import CurrencyPicker from "./components/CurrencyPicker";
 import HomePage from "./components/HomePage";
 import ImportPage from "./components/ImportPage";
 import RestoreBackup from "./components/RestoreBackup";
+import RulesPage from "./components/RulesPage";
 import SettingsPage from "./components/SettingsPage";
 import TransactionsPage from "./components/TransactionsPage";
 import UncategorisedPage from "./components/UncategorisedPage";
 
-type View = "home" | "accounts" | "transactions" | "uncategorised" | "categories" | "settings" | "budgets" | "import";
+type View = "home" | "accounts" | "transactions" | "uncategorised" | "categories" | "settings" | "budgets" | "import" | "rules";
 
 const VIEWS: { view: View; label: string }[] = [
   { view: "home", label: "Home" },
@@ -22,6 +23,7 @@ const VIEWS: { view: View; label: string }[] = [
   { view: "settings", label: "Settings" },
   { view: "budgets", label: "Budgets" },
   { view: "import", label: "Import" },
+  { view: "rules", label: "Rules" },
 ];
 
 export default function App() {
@@ -77,6 +79,7 @@ export default function App() {
         {view === "settings" && <SettingsPage currency={currency} onCurrencyChange={chooseCurrency} onRestored={() => void loadCurrency()} />}
         {view === "budgets" && <BudgetsPage currency={currency} />}
         {view === "import" && <ImportPage currency={currency} />}
+        {view === "rules" && <RulesPage currency={currency} />}
       </main>
     </div>
   );

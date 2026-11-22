@@ -105,6 +105,30 @@ export type BudgetProgress = {
   over: boolean;
 };
 
+export type RuleDirection = "in" | "out";
+
+/** What the user enters for a Rule. match_text is looked for in the description, ignoring case. */
+export type NewRule = {
+  match_text: string;
+  /** null = any Account. */
+  account_id: string | null;
+  /** null = money in or out. */
+  direction: RuleDirection | null;
+  category_id: string;
+};
+
+export type RuleEdit = NewRule & { id: string };
+
+export type Rule = Omit<RuleEdit, "category_id"> & {
+  /** First match wins, lowest first. */
+  position: number;
+  action: "categorise";
+  category_id: string | null;
+};
+
+/** broken: its Category was deleted; it is not applied until another is picked. */
+export type RuleView = Rule & { category_name: string | null; account_name: string | null; broken: boolean };
+
 export type ImportEncoding = "utf-8" | "windows-1252";
 export type AmountMode = "signed" | "split";
 
@@ -235,6 +259,18 @@ export const api = {
   importRun: (accountId: string, fileName: string, file: Uint8Array) =>
     invoke<ImportSummary>("import_run", { account: accountId, fileName, file: Array.from(file) }),
   importsHistory: (accountId: string) => invoke<ImportBatch[]>("imports_history", { account: accountId }),
+  /** Every Rule, in the order they are tried. */
+  rulesList: () => invoke<RuleView[]>("rules_list"),
+  ruleCreate: (rule: NewRule) => invoke<Rule>("rule_create", { rule }),
+  ruleUpdate: (rule: RuleEdit) => invoke<Rule>("rule_update", { rule }),
+  ruleDelete: (id: string) => invoke<void>("rule_delete", { id }),
+  /** Move to `index` in the order (0 = tried first). Only this Rule is written. */
+  ruleMove: (id: string, index: number) => invoke<Rule>("rule_move", { id, index }),
+  /** The existing Transactions the Rule would re-categorise; nothing is changed. */
+  ruleRecategorisePreview: (id: string) => invoke<TransactionView[]>("rule_recategorise_preview", { id }),
+  /** Apply the Rule to the confirmed Transactions. Returns how many changed. */
+  ruleRecategorise: (id: string, transactionIds: string[]) =>
+    invoke<number>("rule_recategorise", { id, transactions: transactionIds }),
   backupExport: (path: string, passphrase: string) => invoke<void>("backup_export", { path, passphrase }),
   backupRestore: (path: string, passphrase: string) =>
     invoke<RestoreReport>("backup_restore", { path, passphrase }),

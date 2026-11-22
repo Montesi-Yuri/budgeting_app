@@ -24,7 +24,7 @@ use crate::error::{Error, Result};
 use crate::hlc::Hlc;
 use crate::store::{Store, SyncedRow};
 use crate::transactions::{Transaction, TxnSource};
-use crate::{ids, settings};
+use crate::{ids, rules, settings};
 
 /// The text encoding of a bank's CSV files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -548,6 +548,7 @@ pub fn import_file(
         if !account_live {
             return Err(Error::invalid("Choose an existing Account."));
         }
+        let rules = rules::applicable(w.conn())?;
         let (mut rows_new, mut rows_skipped) = (0, 0);
         for txn in &candidates {
             let exists: bool = w.conn().query_row(
@@ -558,7 +559,9 @@ pub fn import_file(
             if exists {
                 rows_skipped += 1;
             } else {
-                w.upsert(txn)?;
+                let mut txn = txn.clone();
+                rules::categorise(&rules, &mut txn);
+                w.upsert(&txn)?;
                 rows_new += 1;
             }
         }
