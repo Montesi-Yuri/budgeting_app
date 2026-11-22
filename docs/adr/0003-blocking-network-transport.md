@@ -13,3 +13,4 @@ The Store is shared as `Arc<Mutex<Store>>` and locked once per received message,
 
 - Each open connection holds a thread. The listener accepts any number of connections, but only paired Devices (or one with the open pairing token) get past the handshake.
 - The Noise private key is a file next to the database for now (see sync-design.md §2.4).
+- mDNS discovery (ticket 16) uses `mdns-sd`, which runs its own thread with no async runtime, so this decision still holds.

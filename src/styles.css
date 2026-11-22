@@ -141,3 +141,5 @@ input.big-input { font-size: 1.6rem; padding: 10px 12px; }
 .app.phone .topbar { position: sticky; top: 0; z-index: 1; }
 .tab .badge { margin-left: 6px; }
 .card progress { width: 100%; }
+/* An explanation that asks for a decision, e.g. the Windows Firewall rule (ticket 16). */
+.notice { border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; margin: 10px 0; }

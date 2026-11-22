@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { api, errorMessage, JoinResult, PeriodSpendable, Peer, spendableApi } from "../api";
 import { formatMinor } from "../money";
 import { dayLabel, localToday, periodLabel, periodOf } from "../periods";
+import { lastSyncText, shouldAutoSync } from "../autoSync";
 import { isUnreachable, syncTarget } from "../phone";
 import { syncSummary } from "../sync";
 import PairWithPc from "./PairWithPc";
 import QuickAdd from "./QuickAdd";
 
-const when = (unix: number | null) => (unix ? new Date(unix * 1000).toLocaleString() : "never");
-
-/** The phone's main screen: Spendable, Weekly Spendable, quick add and Sync with the PC. */
+/**
+ * The phone's main screen: Spendable, Weekly Spendable, quick add and Sync with the PC. When the app comes to
+ * the foreground it tries a quick automatic Sync with the PC, and stays quiet if the PC can't be reached.
+ */
 export default function PhoneHome({ currency }: { currency: string }) {
   const [data, setData] = useState<PeriodSpendable | null>(null);
   const [peers, setPeers] = useState<Peer[] | null>(null);
@@ -20,19 +22,64 @@ export default function PhoneHome({ currency }: { currency: string }) {
   const [rescan, setRescan] = useState(false);
   // Bumped after a Sync received changes, so quick add reloads the Accounts and Categories.
   const [synced, setSynced] = useState(0);
+  const [now, setNow] = useState(Date.now());
+  // Read by the visibilitychange handler, which is set up once.
+  const peersRef = useRef<Peer[] | null>(null);
+  const syncingRef = useRef(false);
+  const lastAttemptRef = useRef<number | null>(null);
 
   const reload = useCallback(() => {
     const today = localToday();
     spendableApi.spendableGet(periodOf(today), today).then(setData, (e) => setError(errorMessage(e)));
   }, []);
-  const loadPeers = useCallback(() => api.peersList().then(setPeers, (e) => setError(errorMessage(e))), []);
+  const loadPeers = useCallback(
+    () =>
+      api.peersList().then(
+        (list) => {
+          peersRef.current = list;
+          setPeers(list);
+          return list;
+        },
+        (e) => {
+          setError(errorMessage(e));
+          return null;
+        },
+      ),
+    [],
+  );
+
+  /** The automatic Sync: quick, and silent when the PC can't be reached. */
+  const autoSync = useCallback(async () => {
+    const target = peersRef.current ? syncTarget(peersRef.current) : null;
+    const nowMs = Date.now();
+    if (!shouldAutoSync(target, { syncing: syncingRef.current, lastAttemptMs: lastAttemptRef.current }, nowMs)) return;
+    lastAttemptRef.current = nowMs;
+    syncingRef.current = true;
+    setSyncing(true);
+    try {
+      await api.syncAuto(target!.device_id);
+      setError(null);
+      setRescan(false);
+    } catch {
+      // Not on the same network, or Sync is off on the PC: "Sync now" still says why.
+    } finally {
+      syncingRef.current = false;
+      setSyncing(false);
+      setNow(Date.now());
+      void loadPeers();
+    }
+  }, [loadPeers]);
 
   useEffect(() => {
     reload();
-    void loadPeers();
+    void loadPeers().then(() => autoSync());
     const onVisible = () => {
-      if (document.visibilityState === "visible") reload();
+      if (document.visibilityState !== "visible") return;
+      reload();
+      setNow(Date.now());
+      void autoSync();
     };
+    const clock = setInterval(() => setNow(Date.now()), 30_000);
     document.addEventListener("visibilitychange", onVisible);
     let cancelled = false;
     let unlisten: (() => void) | undefined;
@@ -45,14 +92,16 @@ export default function PhoneHome({ currency }: { currency: string }) {
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(clock);
       unlisten?.();
     };
-  }, [reload, loadPeers]);
+  }, [reload, loadPeers, autoSync]);
 
   const target = peers ? syncTarget(peers) : null;
 
   async function syncNow() {
-    if (!target) return;
+    if (!target || syncingRef.current) return;
+    syncingRef.current = true;
     setSyncing(true);
     setError(null);
     setMessage(null);
@@ -63,7 +112,9 @@ export default function PhoneHome({ currency }: { currency: string }) {
       setError(errorMessage(e));
       setRescan(isUnreachable(e));
     } finally {
+      syncingRef.current = false;
       setSyncing(false);
+      setNow(Date.now());
       void loadPeers();
     }
   }
@@ -105,7 +156,10 @@ export default function PhoneHome({ currency }: { currency: string }) {
             <button className="primary big" disabled={syncing} onClick={() => void syncNow()}>
               {syncing ? "Syncing…" : `Sync now with ${target.name}`}
             </button>
-            <p className="muted small">Last Sync: {when(target.last_sync_at)}</p>
+            <p className="muted small">
+              Last Sync: {lastSyncText(target.last_sync_at, now)}. It syncs by itself when you open the app and the
+              PC is reachable.
+            </p>
           </>
         ) : (
           <>

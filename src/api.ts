@@ -248,7 +248,18 @@ export type AppInfo = {
 };
 
 /** Per-Device Sync settings and whether the listener runs. */
-export type SyncStatus = { enabled: boolean; port: number; listening: boolean; addrs: string[] };
+export type SyncStatus = {
+  enabled: boolean;
+  port: number;
+  listening: boolean;
+  addrs: string[];
+  /** This Device announces itself on the local network (mDNS), so the phone finds it after an address change. */
+  announced: boolean;
+  /** The Windows Firewall rule for Sync (private networks only). */
+  firewall: "allowed" | "missing" | "not_needed";
+  /** The firewall explanation was answered already, so it isn't shown again. */
+  firewall_asked: boolean;
+};
 
 /** "Pair new device": the text to paste on the other Device, and the same as a QR code (SVG) for the phone. */
 export type PairingInfo = { payload: string; qr_svg: string; expires_at: number; addrs: string[]; port: number };
@@ -277,7 +288,10 @@ export type SyncProgress = { peer_device_id: string; phase: "exchanging" | "fini
 export type JoinResult = { peer: Peer; report: SyncReport };
 
 /** What a failed command rejects with. */
-export type CommandError = { kind: "invalid" | "not_found" | "internal" | "sync" | "unreachable"; message: string };
+export type CommandError = {
+  kind: "invalid" | "not_found" | "internal" | "sync" | "unreachable" | "firewall";
+  message: string;
+};
 
 export function errorMessage(err: unknown): string {
   if (err && typeof err === "object" && "message" in err) return String((err as CommandError).message);
@@ -354,7 +368,9 @@ export const api = {
   backupScheduleSet: (folder: string | null, passphrase: string | null) =>
     invoke<BackupSchedule>("backup_schedule_set", { folder, passphrase }),
   syncStatus: () => invoke<SyncStatus>("sync_status"),
-  syncServerSet: (enabled: boolean, port: number) => invoke<SyncStatus>("sync_server_set", { enabled, port }),
+  /** `firewall`: the answer to the firewall explanation (true adds the rule first; Windows asks for permission). */
+  syncServerSet: (enabled: boolean, port: number, firewall?: boolean) =>
+    invoke<SyncStatus>("sync_server_set", { enabled, port, firewall: firewall ?? null }),
   pairingStart: () => invoke<PairingInfo>("pairing_start"),
   pairingCancel: () => invoke<void>("pairing_cancel"),
   /** Pair with the Device whose payload was pasted, then run the first Sync. */
@@ -362,6 +378,8 @@ export const api = {
   peersList: () => invoke<Peer[]>("peers_list"),
   peerRemove: (deviceId: string) => invoke<void>("peer_remove", { deviceId }),
   syncNow: (deviceId: string) => invoke<SyncReport>("sync_now", { deviceId }),
+  /** The quick automatic Sync when the phone app comes to the foreground (about 1.5 s to connect). */
+  syncAuto: (deviceId: string) => invoke<SyncReport>("sync_auto", { deviceId }),
 };
 
 /** The Weekly Spendable for today's Week (cut at the Period boundary). */

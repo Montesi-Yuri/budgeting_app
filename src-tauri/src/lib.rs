@@ -4,6 +4,7 @@
 
 mod backup_commands;
 mod commands;
+mod firewall;
 mod sync_commands;
 
 use std::sync::{Arc, Mutex};
@@ -92,6 +93,7 @@ pub fn run() {
             sync_commands::peers_list,
             sync_commands::peer_remove,
             sync_commands::sync_now,
+            sync_commands::sync_auto,
             commands::planned_items_list,
             commands::planned_item_create,
             commands::planned_item_update,

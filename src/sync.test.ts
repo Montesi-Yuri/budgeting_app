@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { expiresIn, progressText, syncSummary, viewsToRefresh } from "./sync";
+import { expiresIn, needsFirewallExplanation, progressText, syncSummary, viewsToRefresh } from "./sync";
+import type { SyncStatus } from "./api";
 
 const report = (sent: number, received: number) => ({
   peer_device_id: "pc",
@@ -65,5 +66,33 @@ describe("viewsToRefresh: the views showing what a Sync changed", () => {
   });
   it("refreshes nothing when nothing changed", () => {
     expect(viewsToRefresh([])).toEqual([]);
+  });
+});
+
+describe("firewallExplanation: the first time Sync is turned on, explain the Windows Firewall rule first", () => {
+  const status = (over: Partial<SyncStatus>): SyncStatus => ({
+    enabled: false,
+    port: 47321,
+    listening: false,
+    addrs: ["192.168.1.20"],
+    announced: false,
+    firewall: "missing",
+    firewall_asked: false,
+    ...over,
+  });
+  it("turning Sync on without the rule explains it first", () => {
+    expect(needsFirewallExplanation(status({}), true)).toBe(true);
+  });
+  it("not when the rule is there already", () => {
+    expect(needsFirewallExplanation(status({ firewall: "allowed" }), true)).toBe(false);
+  });
+  it("not off Windows", () => {
+    expect(needsFirewallExplanation(status({ firewall: "not_needed" }), true)).toBe(false);
+  });
+  it("only once: not after the user answered it", () => {
+    expect(needsFirewallExplanation(status({ firewall_asked: true }), true)).toBe(false);
+  });
+  it("not when turning Sync off", () => {
+    expect(needsFirewallExplanation(status({ enabled: true }), false)).toBe(false);
   });
 });

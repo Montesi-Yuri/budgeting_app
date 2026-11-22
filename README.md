@@ -25,7 +25,9 @@ The database is created on first launch at `%APPDATA%\app.budgeting.personal\bud
 
 ## Pairing and Sync
 
-In Settings → Sync, turn on **Allow Sync** on the Device that listens (the PC), then use **Pair new device** and paste the pairing code into **Join another Device** on the other one, within 5 minutes. The first time the app listens, Windows asks whether to allow it on the network: allow it for private networks only. Nothing else in the system's network settings is changed (ticket 16 will add a firewall rule).
+In Settings → Sync, turn on **Allow Sync** on the Device that listens (the PC), then use **Pair new device** and paste the pairing code into **Join another Device** on the other one, within 5 minutes. The first time you turn on Allow Sync on Windows, the app explains why it needs a Windows Firewall rule and offers to add one: **Add the rule and turn on Sync** adds an inbound rule named "Budgeting app (Sync)" that allows this program on **private networks only** (Windows asks for administrator permission), and **Turn on without it** leaves the firewall alone. Nothing changes without that click. To remove the rule: `netsh advfirewall firewall delete rule name="Budgeting app (Sync)"` in an administrator prompt, or Windows Defender Firewall → Advanced settings → Inbound Rules.
+
+While Sync is on, the PC announces itself on the local network with mDNS (`_bsync._tcp.local.`, UDP 5353). When a Sync can't reach a paired Device at its last known address, the app looks for it there by its device id, syncs, and saves the new address, so a PC whose address changed needs no new pairing code. The phone also syncs by itself when the app comes to the foreground, giving up quietly after about 1.5 s if the PC isn't reachable.
 
 To try it with two instances on one PC, start the second with its own data folder and use a different port in its Settings:
 
@@ -59,12 +61,12 @@ npx tauri android dev      # on a phone connected with USB debugging (or an emul
 npx tauri android build --apk --target aarch64   # release APK in src-tauri/gen/android/app/build/outputs/apk/
 ```
 
-The camera permission comes from the scanner plugin's manifest and is asked for the first time you scan; the network permission (`INTERNET`) is in the generated manifest. The phone and the PC must be on the same Wi-Fi, with Allow Sync on the PC.
+The camera permission comes from the scanner plugin's manifest and is asked for the first time you scan; the network permission (`INTERNET`) is in the generated manifest. The phone and the PC must be on the same Wi-Fi, with Allow Sync on the PC. Finding the PC after its address changed uses mDNS, and many Android phones drop multicast packets unless the app holds a Wi-Fi multicast lock (`CHANGE_WIFI_MULTICAST_STATE`); that isn't added yet (see ticket 16), so check it on the phone, and rescan the QR code if the phone doesn't find the PC.
 
 ## Test and check
 
 ```sh
-npm run test:rust      # Rust tests: HLC, write path and sync log, domain modules, Backup, Sync and Pairing over localhost TCP
+npm run test:rust      # Rust tests: HLC, write path and sync log, domain modules, Backup, Sync and Pairing over localhost TCP, mDNS discovery on loopback
 npm test               # UI unit tests (money formatting and parsing, Backup messages, Sync helpers)
 npm run typecheck      # TypeScript
 cargo clippy --workspace --all-targets
