@@ -81,6 +81,12 @@ pub fn run() {
             sync_commands::peers_list,
             sync_commands::peer_remove,
             sync_commands::sync_now,
+            commands::planned_items_list,
+            commands::planned_item_create,
+            commands::planned_item_update,
+            commands::planned_item_end,
+            commands::planned_item_delete,
+            commands::planned_period_get,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the app");

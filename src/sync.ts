@@ -4,17 +4,18 @@ import type { SyncProgress, SyncReport } from "./api";
 
 /** The views of App.tsx that show synced data. */
 // Home refreshes itself on `data://changed`, so it is not listed here.
-export type DataView = "accounts" | "transactions" | "uncategorised" | "categories" | "budgets" | "import";
+export type DataView = "accounts" | "transactions" | "uncategorised" | "categories" | "budgets" | "import" | "planned";
 
-const ALL_VIEWS: DataView[] = ["accounts", "transactions", "uncategorised", "categories", "budgets", "import"];
+const ALL_VIEWS: DataView[] = ["accounts", "transactions", "uncategorised", "categories", "budgets", "import", "planned"];
 
 /** Which views show each synced entity (by `op.entity`, the table name). */
 const VIEWS_BY_ENTITY: Record<string, DataView[]> = {
   // Account names and balances appear in every list.
-  account: ["accounts", "transactions", "uncategorised", "import"],
-  category: ["transactions", "uncategorised", "categories", "budgets"],
+  account: ["accounts", "transactions", "uncategorised", "import", "planned"],
+  category: ["transactions", "uncategorised", "categories", "budgets", "planned"],
   txn: ["accounts", "transactions", "uncategorised", "budgets"],
   budget: ["budgets"],
+  planned_item: ["planned"],
   import_profile: ["import"],
   import_batch: ["import"],
   // The Currency is reloaded by App itself.

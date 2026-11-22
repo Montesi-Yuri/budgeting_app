@@ -293,3 +293,54 @@ pub fn import_run(
 pub fn imports_history(store: State<'_, AppStore>, account: String) -> CmdResult<Vec<ImportBatch>> {
     imports::history(&*lock(&store)?, &account).map_err(Into::into)
 }
+
+// ----- Planned items and Set-asides (ticket 08) -----
+
+#[tauri::command]
+pub fn planned_items_list(
+    store: State<'_, AppStore>,
+) -> CmdResult<Vec<budget_core::planned::PlannedItem>> {
+    budget_core::planned::list(&*lock(&store)?).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn planned_item_create(
+    store: State<'_, AppStore>,
+    item: budget_core::planned::NewPlannedItem,
+) -> CmdResult<budget_core::planned::PlannedItem> {
+    budget_core::planned::create(&mut *lock(&store)?, item).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn planned_item_update(
+    store: State<'_, AppStore>,
+    item: budget_core::planned::PlannedItem,
+) -> CmdResult<budget_core::planned::PlannedItem> {
+    budget_core::planned::update(&mut *lock(&store)?, item).map_err(Into::into)
+}
+
+/// `last_day` (`YYYY-MM-DD`): the last day the item can occur.
+#[tauri::command]
+pub fn planned_item_end(
+    store: State<'_, AppStore>,
+    id: String,
+    last_day: String,
+) -> CmdResult<budget_core::planned::PlannedItem> {
+    let last_day = last_day.parse()?;
+    budget_core::planned::end(&mut *lock(&store)?, &id, last_day).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn planned_item_delete(store: State<'_, AppStore>, id: String) -> CmdResult<()> {
+    budget_core::planned::delete(&mut *lock(&store)?, &id).map_err(Into::into)
+}
+
+/// The expected occurrences and Set-asides of `period` (`YYYY-MM`).
+#[tauri::command]
+pub fn planned_period_get(
+    store: State<'_, AppStore>,
+    period: String,
+) -> CmdResult<budget_core::planned::PeriodPlan> {
+    let period = period.parse()?;
+    budget_core::planned::for_period(&*lock(&store)?, period).map_err(Into::into)
+}

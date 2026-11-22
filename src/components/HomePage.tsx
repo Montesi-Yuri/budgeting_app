@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { errorMessage, PeriodSpendable, spendableApi } from "../api";
+import { errorMessage, PeriodPlan, PeriodSpendable, plannedApi, spendableApi } from "../api";
 import { formatMinor } from "../money";
 import { dayLabel, localToday, periodLabel, periodOf, shiftPeriod } from "../periods";
+import { scheduleLabel } from "../planned";
 
 /** Re-check the date this often, so the Week and days left move at midnight. */
 const CLOCK_TICK_MS = 60_000;
@@ -12,12 +13,14 @@ export default function HomePage({ currency }: { currency: string }) {
   const current = periodOf(today);
   const [period, setPeriod] = useState(current);
   const [data, setData] = useState<PeriodSpendable | null>(null);
+  const [plan, setPlan] = useState<PeriodPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(() => {
-    spendableApi.spendableGet(period, today).then(
-      (d) => {
+    Promise.all([spendableApi.spendableGet(period, today), plannedApi.periodGet(period)]).then(
+      ([d, p]) => {
         setData(d);
+        setPlan(p);
         setError(null);
       },
       (e) => setError(errorMessage(e)),
@@ -117,6 +120,18 @@ export default function HomePage({ currency }: { currency: string }) {
                   <td>{money(data.uncategorised_minor)}</td>
                 </tr>
                 <tr>
+                  <td>Expected Income (Planned items)</td>
+                  <td>{money(data.expected_income_minor)}</td>
+                </tr>
+                <tr>
+                  <td>Expected Expenses (Planned items)</td>
+                  <td>{money(data.expected_expenses_minor)}</td>
+                </tr>
+                <tr>
+                  <td>Set-asides</td>
+                  <td>{money(data.set_asides_minor)}</td>
+                </tr>
+                <tr>
                   <td>Savings target</td>
                   <td>{money(-data.savings_target_minor)}</td>
                 </tr>
@@ -130,6 +145,50 @@ export default function HomePage({ currency }: { currency: string }) {
               Each Period starts fresh. The Savings target is set in Settings.
             </p>
           </section>
+
+          {plan && plan.period === period && (
+            <section className="card">
+              <h2>Planned this Period</h2>
+              {plan.occurrences.length === 0 && plan.set_asides.length === 0 && (
+                <p className="muted small">Nothing planned. Add Planned items to see expected Income and Expenses here.</p>
+              )}
+              {plan.occurrences.length > 0 && (
+                <table className="breakdown">
+                  <tbody>
+                    {plan.occurrences.map((o) => (
+                      <tr key={`${o.planned_item_id}-${o.due_date}`}>
+                        <td>
+                          {dayLabel(o.due_date)} · {o.description}{" "}
+                          {o.set_aside && <span className="badge muted-badge">covered by its Set-aside</span>}
+                        </td>
+                        <td>{money(o.amount_minor)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {plan.set_asides.length > 0 && (
+                <>
+                  <h2>Set-asides</h2>
+                  <table className="breakdown">
+                    <tbody>
+                      {plan.set_asides.map((a) => (
+                        <tr key={a.planned_item_id}>
+                          <td>
+                            {a.description}{" "}
+                            <span className="muted small">
+                              {formatMinor(a.item_amount_minor, currency)} {scheduleLabel(a.schedule).toLowerCase()}
+                            </span>
+                          </td>
+                          <td>{money(a.amount_minor)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </section>
+          )}
         </>
       )}
     </>

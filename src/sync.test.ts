@@ -43,19 +43,20 @@ describe("expiresIn: the pairing code's countdown", () => {
 
 describe("viewsToRefresh: the views showing what a Sync changed", () => {
   it("refreshes every view that shows an Account after Accounts changed", () => {
-    expect(viewsToRefresh(["account"])).toEqual(["accounts", "transactions", "uncategorised", "import"]);
+    expect(viewsToRefresh(["account"])).toEqual(["accounts", "transactions", "uncategorised", "import", "planned"]);
   });
   it("refreshes Categories and the lists showing their names after Categories changed", () => {
-    expect(viewsToRefresh(["category"])).toEqual(["transactions", "uncategorised", "categories", "budgets"]);
+    expect(viewsToRefresh(["category"])).toEqual(["transactions", "uncategorised", "categories", "budgets", "planned"]);
   });
   it("refreshes the lists and the balances after Transactions changed", () => {
     expect(viewsToRefresh(["txn"])).toEqual(["accounts", "transactions", "uncategorised", "budgets"]);
   });
   it("refreshes everything for an entity it doesn't know yet", () => {
-    expect(viewsToRefresh(["planned_item"])).toEqual(["accounts", "transactions", "uncategorised", "categories", "budgets", "import"]);
+    expect(viewsToRefresh(["rule"])).toEqual(["accounts", "transactions", "uncategorised", "categories", "budgets", "import", "planned"]);
   });
   it("refreshes Budgets after Budgets changed and Import after Import profiles changed", () => {
     expect(viewsToRefresh(["budget"])).toEqual(["budgets"]);
+    expect(viewsToRefresh(["planned_item"])).toEqual(["planned"]);
     expect(viewsToRefresh(["import_profile", "import_batch"])).toEqual(["import"]);
   });
   it("refreshes nothing when nothing changed", () => {
