@@ -111,3 +111,5 @@ input.port { width: 6em; }
 .peers li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-top: 1px solid var(--border); }
 .peers li:first-child { border-top: none; }
 .peers .actions { margin-left: auto; }
+.tab .badge { margin-left: 6px; }
+.card progress { width: 100%; }

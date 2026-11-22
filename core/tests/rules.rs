@@ -3,7 +3,7 @@
 use budget_core::accounts::{self, Account, AccountKind, NewAccount};
 use budget_core::categories::{self, Category, CategoryKind, NewCategory};
 use budget_core::imports::{self, ImportProfile};
-use budget_core::rules::{self, Direction, NewRule, RuleEdit};
+use budget_core::rules::{self, Direction, NewRule, RuleAction, RuleEdit};
 use budget_core::transactions::{self, CategorySource, TransactionView};
 use budget_core::{settings, Error, Store};
 
@@ -44,7 +44,8 @@ fn contains(text: &str, category: &Category) -> NewRule {
         match_text: text.into(),
         account_id: None,
         direction: None,
-        category_id: category.id.clone(),
+        action: RuleAction::Categorise,
+        category_id: Some(category.id.clone()),
     }
 }
 
@@ -148,7 +149,7 @@ fn a_rule_needs_text_and_an_existing_category_and_account() {
     let no_category = rules::create(
         &mut store,
         NewRule {
-            category_id: "missing".into(),
+            category_id: Some("missing".into()),
             ..contains("coop", &groceries)
         },
     );
@@ -340,7 +341,8 @@ fn a_rule_can_be_edited_and_deleted() {
             match_text: " esso ".into(),
             account_id: Some(current.id.clone()),
             direction: Some(Direction::Out),
-            category_id: fuel.id.clone(),
+            action: RuleAction::Categorise,
+            category_id: Some(fuel.id.clone()),
         },
     )
     .unwrap();
@@ -374,7 +376,8 @@ fn picking_a_live_category_repairs_a_broken_rule() {
             match_text: rule.match_text.clone(),
             account_id: None,
             direction: None,
-            category_id: groceries.id.clone(),
+            action: RuleAction::Categorise,
+            category_id: Some(groceries.id.clone()),
         },
     )
     .unwrap();

@@ -267,7 +267,7 @@ fn validated(
     Ok(txn)
 }
 
-fn find_live(conn: &Connection, id: &str) -> Result<Transaction> {
+pub(crate) fn find_live(conn: &Connection, id: &str) -> Result<Transaction> {
     list_where(conn, "t.id = ?1", params![id])?
         .pop()
         .map(|v| v.transaction)
@@ -295,9 +295,19 @@ pub fn list_for_account(store: &Store, account_id: &str) -> Result<Vec<Transacti
 }
 
 /// Every live Transaction without a Category (or whose Category was
-/// deleted), on any live Account, newest first.
+/// deleted), on any live Account, newest first. Transactions in a Transfer
+/// that isn't rejected need no Category, so they are left out.
 pub fn list_uncategorised(store: &Store) -> Result<Vec<TransactionView>> {
-    list_where(store.conn(), "c.id IS NULL", [])
+    let filter = format!(
+        "c.id IS NULL AND t.id NOT IN ({})",
+        crate::transfers::IN_TRANSFER_SQL
+    );
+    list_where(store.conn(), &filter, [])
+}
+
+/// One live Transaction on a live Account, as shown in a list.
+pub(crate) fn view_live(conn: &Connection, id: &str) -> Result<Option<TransactionView>> {
+    Ok(list_where(conn, "t.id = ?1", params![id])?.pop())
 }
 
 /// Every live Transaction on any live Account, newest first.
@@ -314,7 +324,7 @@ const VIEW_SELECT: &str = "
     LEFT JOIN category c ON c.id = t.category_id AND c.deleted = 0
     WHERE t.deleted = 0 AND ";
 
-fn list_where(
+pub(crate) fn list_where(
     conn: &Connection,
     filter: &str,
     args: impl rusqlite::Params,

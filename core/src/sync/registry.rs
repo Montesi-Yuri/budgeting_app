@@ -18,6 +18,7 @@ use crate::rules::Rule;
 use crate::settings::Setting;
 use crate::store::SyncedRow;
 use crate::transactions::Transaction;
+use crate::transfers::Transfer;
 
 /// Every synced entity this build knows. Add new entities at the end.
 pub const SYNCED_ENTITIES: &[SyncedEntity] = &[
@@ -30,6 +31,7 @@ pub const SYNCED_ENTITIES: &[SyncedEntity] = &[
     entity::<ImportBatch>(),
     entity::<PlannedItem>(),
     entity::<Rule>(),
+    entity::<Transfer>(),
 ];
 
 /// One registered synced entity: its table and how to save a row decoded

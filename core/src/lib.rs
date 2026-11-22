@@ -14,6 +14,7 @@ pub mod ids;
 pub mod imports;
 pub mod period;
 pub mod planned;
+pub mod review;
 pub mod rules;
 pub mod settings;
 pub mod spendable;
@@ -21,6 +22,7 @@ pub mod store;
 pub mod sync;
 pub mod totals;
 pub mod transactions;
+pub mod transfers;
 
 pub use db::SCHEMA_VERSION;
 pub use error::{Error, Result};

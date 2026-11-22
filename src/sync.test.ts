@@ -43,22 +43,25 @@ describe("expiresIn: the pairing code's countdown", () => {
 
 describe("viewsToRefresh: the views showing what a Sync changed", () => {
   it("refreshes every view that shows an Account after Accounts changed", () => {
-    expect(viewsToRefresh(["account"])).toEqual(["accounts", "transactions", "uncategorised", "import", "planned", "rules"]);
+    expect(viewsToRefresh(["account"])).toEqual(["review", "accounts", "transactions", "uncategorised", "import", "planned", "rules"]);
   });
   it("refreshes Categories and the lists showing their names after Categories changed", () => {
     expect(viewsToRefresh(["category"])).toEqual(["transactions", "uncategorised", "categories", "budgets", "planned", "rules"]);
   });
   it("refreshes the lists and the balances after Transactions changed", () => {
-    expect(viewsToRefresh(["txn"])).toEqual(["accounts", "transactions", "uncategorised", "budgets"]);
+    expect(viewsToRefresh(["txn"])).toEqual(["review", "accounts", "transactions", "uncategorised", "budgets"]);
   });
   it("refreshes everything for an entity it doesn't know yet", () => {
-    expect(viewsToRefresh(["transfer"])).toEqual(["accounts", "transactions", "uncategorised", "categories", "budgets", "import", "planned", "rules"]);
+    expect(viewsToRefresh(["some_future_entity"])).toEqual(["review", "accounts", "transactions", "uncategorised", "categories", "budgets", "import", "planned", "rules"]);
   });
   it("refreshes Budgets after Budgets changed and Import after Import profiles changed", () => {
     expect(viewsToRefresh(["budget"])).toEqual(["budgets"]);
     expect(viewsToRefresh(["planned_item"])).toEqual(["planned"]);
     expect(viewsToRefresh(["rule"])).toEqual(["rules"]);
     expect(viewsToRefresh(["import_profile", "import_batch"])).toEqual(["import"]);
+  });
+  it("refreshes the review list, the Uncategorised list and Budgets after Transfers changed", () => {
+    expect(viewsToRefresh(["transfer"])).toEqual(["review", "uncategorised", "budgets"]);
   });
   it("refreshes nothing when nothing changed", () => {
     expect(viewsToRefresh([])).toEqual([]);

@@ -5,8 +5,9 @@
 //! expense Category is a Refund: it reduces that Category's spending and is
 //! not Income. Transactions without a (live) Category are Uncategorised.
 //!
-//! Not yet excluded: Transfers (ticket 06) and Manual Transactions hidden by
-//! a match (ticket 07).
+//! Transactions in a Transfer that isn't rejected are left out: a Transfer
+//! is never Income or an Expense (see [`crate::transfers`]). Not yet
+//! excluded: Manual Transactions hidden by a match (ticket 07).
 
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
@@ -14,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::categories::CategoryKind;
 use crate::error::Result;
 use crate::store::Store;
+use crate::transfers;
 
 /// The signed sum of one Category's Transactions in the range.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,17 +52,20 @@ impl Totals {
 }
 
 /// Totals of the live Transactions on live Accounts dated `from..=to`
-/// (`YYYY-MM-DD`).
+/// (`YYYY-MM-DD`), leaving out those in a Transfer that isn't rejected.
 pub fn for_dates(store: &Store, from: &str, to: &str) -> Result<Totals> {
-    let mut stmt = store.conn().prepare(
+    let sql = format!(
         "SELECT c.id, c.kind, SUM(t.amount_minor)
          FROM txn t
          JOIN account a ON a.id = t.account_id AND a.deleted = 0
          LEFT JOIN category c ON c.id = t.category_id AND c.deleted = 0
          WHERE t.deleted = 0 AND t.date BETWEEN ?1 AND ?2
+           AND t.id NOT IN ({})
          GROUP BY c.id, c.kind
          ORDER BY c.id",
-    )?;
+        transfers::IN_TRANSFER_SQL
+    );
+    let mut stmt = store.conn().prepare(&sql)?;
     let rows = stmt.query_map(params![from, to], |r| {
         Ok((
             r.get::<_, Option<String>>(0)?,

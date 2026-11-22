@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { errorMessage, PeriodPlan, PeriodSpendable, plannedApi, spendableApi } from "../api";
+import { api, errorMessage, PeriodPlan, PeriodSpendable, plannedApi, SavingsProgress, spendableApi } from "../api";
 import { formatMinor } from "../money";
 import { dayLabel, localToday, periodLabel, periodOf, shiftPeriod } from "../periods";
 import { scheduleLabel } from "../planned";
@@ -14,13 +14,15 @@ export default function HomePage({ currency }: { currency: string }) {
   const [period, setPeriod] = useState(current);
   const [data, setData] = useState<PeriodSpendable | null>(null);
   const [plan, setPlan] = useState<PeriodPlan | null>(null);
+  const [savings, setSavings] = useState<SavingsProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(() => {
-    Promise.all([spendableApi.spendableGet(period, today), plannedApi.periodGet(period)]).then(
-      ([d, p]) => {
+    Promise.all([spendableApi.spendableGet(period, today), plannedApi.periodGet(period), api.savingsProgressGet(period)]).then(
+      ([d, p, s]) => {
         setData(d);
         setPlan(p);
+        setSavings(s);
         setError(null);
       },
       (e) => setError(errorMessage(e)),
@@ -145,6 +147,27 @@ export default function HomePage({ currency }: { currency: string }) {
               Each Period starts fresh. The Savings target is set in Settings.
             </p>
           </section>
+
+          {savings && savings.period === period && (
+            <section className="card">
+              <h2>Savings</h2>
+              <table className="breakdown">
+                <tbody>
+                  <tr>
+                    <td>Savings target</td>
+                    <td>{money(savings.target_minor)}</td>
+                  </tr>
+                  <tr>
+                    <td>Transferred into savings Accounts {isCurrent ? "so far" : ""}</td>
+                    <td>{money(savings.transferred_minor)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              {savings.target_minor > 0 && (
+                <progress max={savings.target_minor} value={Math.max(0, Math.min(savings.transferred_minor, savings.target_minor))} />
+              )}
+            </section>
+          )}
 
           {plan && plan.period === period && (
             <section className="card">

@@ -24,7 +24,7 @@ use crate::error::{Error, Result};
 use crate::hlc::Hlc;
 use crate::store::{Store, SyncedRow};
 use crate::transactions::{Transaction, TxnSource};
-use crate::{ids, rules, settings};
+use crate::{ids, rules, settings, transfers};
 
 /// The text encoding of a bank's CSV files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -550,6 +550,8 @@ pub fn import_file(
         }
         let rules = rules::applicable(w.conn())?;
         let (mut rows_new, mut rows_skipped) = (0, 0);
+        let mut new_txns = Vec::new();
+        let mut marked_as_transfer = Vec::new();
         for txn in &candidates {
             let exists: bool = w.conn().query_row(
                 "SELECT EXISTS(SELECT 1 FROM txn WHERE id = ?1)",
@@ -560,11 +562,16 @@ pub fn import_file(
                 rows_skipped += 1;
             } else {
                 let mut txn = txn.clone();
-                rules::categorise(&rules, &mut txn);
+                let rule = rules::categorise(&rules, &mut txn);
+                if rule.is_some_and(|r| r.action == rules::RuleAction::Transfer) {
+                    marked_as_transfer.push(txn.id.clone());
+                }
                 w.upsert(&txn)?;
+                new_txns.push(txn);
                 rows_new += 1;
             }
         }
+        transfers::after_import(w, &new_txns, &marked_as_transfer)?;
         let batch = ImportBatch {
             id: batch_id.clone(),
             account_id: account_id.to_owned(),

@@ -48,7 +48,7 @@ cargo clippy --workspace --all-targets
 
 | Path | What it is |
 |---|---|
-| `core/` | Crate `budget_core`: the database, migrations, the single write path and sync log (`store.rs`), the hybrid logical clock (`hlc.rs`) and the domain modules (`accounts.rs`, `settings.rs`, `period.rs` and `spendable.rs` for Periods, Weeks and Spendable, `imports/` for CSV Imports, `backup.rs` for Backups, ...). It doesn't depend on Tauri. Tests are in `core/tests/`. |
+| `core/` | Crate `budget_core`: the database, migrations, the single write path and sync log (`store.rs`), the hybrid logical clock (`hlc.rs`) and the domain modules (`accounts.rs`, `settings.rs`, `period.rs` and `spendable.rs` for Periods, Weeks and Spendable, `imports/` for CSV Imports, `transfers.rs` and `review.rs` for Transfers and the review list, `backup.rs` for Backups, ...). It doesn't depend on Tauri. Tests are in `core/tests/`. |
 | `core/migrations/` | SQL migrations, applied in order. Never edit a released one: add a new file. |
 | `src-tauri/` | The Tauri shell: app setup and `#[tauri::command]`s (`commands.rs`; the Backup commands, weekly Backup thread and Windows credential store in `backup_commands.rs`). |
 | `src/` | The React UI. `api.ts` wraps the commands, and `money.ts` formats and parses amounts in minor units. |
