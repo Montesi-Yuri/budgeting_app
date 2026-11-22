@@ -9,22 +9,28 @@
 //! - `sync://failed` — a Sync or Pairing the other Device started failed
 //! - `data://changed` — `{ entities }` after a Sync received changes
 //!
-//! Windows asks to allow the app through the firewall the first time it
-//! listens on the network. Ticket 16 adds a rule for private networks.
+//! While Sync is on, the PC announces itself on the local network with mDNS,
+//! and every Device looks for a paired Device there when its last known
+//! address fails (`SyncNode::set_discovery`).
+//!
+//! The first time Sync is turned on, the Settings page explains why the
+//! Windows Firewall rule is needed, then `sync_server_set(.., firewall:
+//! true)` adds it (see `firewall.rs`; Windows asks for permission).
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use budget_core::sync::{
-    local_addresses, Identity, Listener, Peer, SyncEvents, SyncNode, SyncProgress, SyncReport,
-    DEFAULT_PORT,
+    local_addresses, Identity, Listener, Mdns, Peer, SyncEvents, SyncNode, SyncProgress,
+    SyncReport, DEFAULT_PORT,
 };
 use budget_core::Store;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::{CmdResult, CommandError};
+use crate::firewall::{self, FirewallState};
 
 /// The per-Device Sync settings file in the app data folder. Not synced.
 const SETTINGS_FILE: &str = "sync.json";
@@ -36,6 +42,10 @@ pub struct SyncSettings {
     /// Listen for other Devices ("Allow sync").
     pub enabled: bool,
     pub port: u16,
+    /// The user has answered the Windows Firewall explanation (added the
+    /// rule or chose not to), so it isn't shown again.
+    #[serde(default)]
+    pub firewall_asked: bool,
 }
 
 impl Default for SyncSettings {
@@ -43,6 +53,7 @@ impl Default for SyncSettings {
         SyncSettings {
             enabled: false,
             port: DEFAULT_PORT,
+            firewall_asked: false,
         }
     }
 }
@@ -99,6 +110,9 @@ pub fn init(
                 .unwrap_or(0)
         }),
     )?;
+    // The mDNS socket opens only when Sync is turned on (to announce) or a
+    // Sync can't reach the other Device at its last known address.
+    node.set_discovery(Arc::new(Mdns::new()));
     let settings_path = dir.join(SETTINGS_FILE);
     let settings: SyncSettings = std::fs::read(&settings_path)
         .ok()
@@ -157,26 +171,42 @@ pub struct SyncStatus {
     listening: bool,
     /// This Device's addresses, as put in a pairing payload.
     addrs: Vec<String>,
+    /// Whether this Device announces itself on the network (mDNS).
+    announced: bool,
+    /// The Windows Firewall rule for Sync.
+    firewall: FirewallState,
+    /// The firewall explanation was answered already.
+    firewall_asked: bool,
 }
 
 #[tauri::command]
 pub fn sync_status(sync: State<'_, SyncState>) -> CmdResult<SyncStatus> {
     let settings = *sync.settings.lock().map_err(|_| unavailable())?;
-    let listening = sync.listener.lock().map_err(|_| unavailable())?.is_some();
+    let (listening, announced) = match &*sync.listener.lock().map_err(|_| unavailable())? {
+        Some(listener) => (true, listener.is_announced()),
+        None => (false, false),
+    };
     Ok(SyncStatus {
         enabled: settings.enabled,
         port: settings.port,
         listening,
         addrs: local_addresses(),
+        announced,
+        firewall: firewall::state(),
+        firewall_asked: settings.firewall_asked,
     })
 }
 
-/// Turn Sync (the listener) on or off, on `port`.
+/// Turn Sync (the listener) on or off, on `port`. `firewall` is the answer
+/// to the Windows Firewall explanation: `true` adds the rule first (Windows
+/// asks for permission; if it isn't given, Sync stays as it was), `false`
+/// turns Sync on without it. Either way the explanation isn't shown again.
 #[tauri::command]
-pub fn sync_server_set(
+pub async fn sync_server_set(
     sync: State<'_, SyncState>,
     enabled: bool,
     port: u16,
+    firewall: Option<bool>,
 ) -> CmdResult<SyncStatus> {
     if port == 0 {
         return Err(CommandError::new(
@@ -184,7 +214,22 @@ pub fn sync_server_set(
             "Choose a port between 1 and 65535.",
         ));
     }
-    let settings = SyncSettings { enabled, port };
+    if firewall == Some(true) {
+        tauri::async_runtime::spawn_blocking(firewall::allow)
+            .await
+            .map_err(|e| CommandError::new("internal", e.to_string()))?
+            .map_err(|message| CommandError::new("firewall", message))?;
+    }
+    let asked = sync
+        .settings
+        .lock()
+        .map_err(|_| unavailable())?
+        .firewall_asked;
+    let settings = SyncSettings {
+        enabled,
+        port,
+        firewall_asked: asked || firewall.is_some(),
+    };
     sync.apply(settings)?;
     sync.save(settings)?;
     sync_status(sync)
@@ -255,6 +300,15 @@ pub fn peer_remove(sync: State<'_, SyncState>, device_id: String) -> CmdResult<(
 pub async fn sync_now(sync: State<'_, SyncState>, device_id: String) -> CmdResult<SyncReport> {
     let node = sync.node.clone();
     blocking(move || node.sync_with(&device_id)).await
+}
+
+/// The automatic Sync when the phone app comes to the foreground: gives up
+/// after about 1.5 s to connect (and as long to find the PC on the network),
+/// so the UI can stay quiet when the PC isn't reachable.
+#[tauri::command]
+pub async fn sync_auto(sync: State<'_, SyncState>, device_id: String) -> CmdResult<SyncReport> {
+    let node = sync.node.clone();
+    blocking(move || node.sync_automatically(&device_id)).await
 }
 
 /// Run blocking network code off the UI thread.

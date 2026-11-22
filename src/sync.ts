@@ -1,6 +1,6 @@
 // Pure helpers for the Sync UI: summaries, the pairing countdown, and which
 // views to refresh after a Sync received changes.
-import type { SyncProgress, SyncReport } from "./api";
+import type { SyncProgress, SyncReport, SyncStatus } from "./api";
 
 /** The views of App.tsx that show synced data. */
 // Home refreshes itself on `data://changed`, so it is not listed here.
@@ -47,4 +47,12 @@ export function expiresIn(expiresAt: number, nowMs: number): string | null {
   const left = Math.ceil(expiresAt - nowMs / 1000);
   if (left <= 0) return null;
   return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Whether turning Sync on (`enabling`) should first explain the Windows Firewall rule and ask to add it:
+ * on Windows, when the rule is missing and the user hasn't answered before.
+ */
+export function needsFirewallExplanation(status: SyncStatus, enabling: boolean): boolean {
+  return enabling && status.firewall === "missing" && !status.firewall_asked;
 }

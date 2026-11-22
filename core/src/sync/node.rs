@@ -23,6 +23,7 @@ use serde::Serialize;
 
 use crate::error::{Error, Result};
 use crate::store::Store;
+use crate::sync::discovery::{Announcement, Discovery};
 use crate::sync::identity::Identity;
 use crate::sync::pairing::{
     random_bytes, PairingError, PairingPayload, PendingPairing, PAIRING_TTL_SECS,
@@ -38,6 +39,10 @@ pub const DEFAULT_PORT: u16 = 47321;
 /// How long [`SyncNode::join`] and [`SyncNode::sync_with`] wait for a TCP
 /// connection, per address, unless changed with [`SyncNode::set_connect_timeout`].
 pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
+
+/// How long the automatic Sync ([`SyncNode::sync_automatically`]) waits to
+/// connect, and to find the other Device on the network.
+pub const AUTO_SYNC_TIMEOUT: Duration = Duration::from_millis(1500);
 
 /// Where a Sync is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -97,6 +102,7 @@ struct Inner {
     events: Box<dyn SyncEvents>,
     now: Clock,
     connect_timeout: Mutex<Duration>,
+    discovery: Mutex<Option<Arc<dyn Discovery>>>,
 }
 
 /// Pairing and Sync for one Device. Cheap to clone (all clones share state).
@@ -131,6 +137,7 @@ impl SyncNode {
                 events,
                 now,
                 connect_timeout: Mutex::new(DEFAULT_CONNECT_TIMEOUT),
+                discovery: Mutex::new(None),
             }),
         })
     }
@@ -143,6 +150,25 @@ impl SyncNode {
             .connect_timeout
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = timeout;
+    }
+
+    /// Announce this Device on the local network while it listens, and look
+    /// for a paired Device there when its last known address fails
+    /// (sync-design.md §3.4).
+    pub fn set_discovery(&self, discovery: Arc<dyn Discovery>) {
+        *self
+            .inner
+            .discovery
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(discovery);
+    }
+
+    fn discovery(&self) -> Option<Arc<dyn Discovery>> {
+        self.inner
+            .discovery
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     /// Start accepting other Devices on `addr` (e.g. `0.0.0.0:47321`; port
@@ -174,11 +200,23 @@ impl SyncNode {
                 });
             }
         });
+        // Without mDNS the listener still works: the other Devices then
+        // need its last known address or a new pairing code.
+        let announcement = match self.discovery() {
+            Some(discovery) => {
+                let device_id = lock(&self.inner.store)?.device_id().to_owned();
+                discovery
+                    .announce(&device_id, &self.inner.name, local.port())
+                    .ok()
+            }
+            None => None,
+        };
         Ok(Listener {
             node: self.clone(),
             addr: local,
             stop,
             thread: Some(thread),
+            announcement,
         })
     }
 
@@ -217,12 +255,18 @@ impl SyncNode {
     /// the payload in turn.
     pub fn join(&self, payload: &str) -> Result<Joined> {
         let payload = PairingPayload::parse(payload)?;
+        let timeout = *self
+            .inner
+            .connect_timeout
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let (mut conn, addr) = self.connect_any(
             payload
                 .addrs
                 .iter()
                 .map(|a| format!("{a}:{}", payload.port)),
             &payload.public_key,
+            timeout,
         )?;
         let device_id = lock(&self.inner.store)?.device_id().to_owned();
         conn.send(&Msg::PairRequest {
@@ -264,9 +308,33 @@ impl SyncNode {
         self.sync_with_addrs(device_id, &[])
     }
 
+    /// The automatic Sync when the app comes to the foreground (§3.4): like
+    /// [`SyncNode::sync_with`], but it waits at most [`AUTO_SYNC_TIMEOUT`]
+    /// to connect, and as long to find the Device on the network, so it
+    /// gives up quickly when the other Device can't be reached.
+    pub fn sync_automatically(&self, device_id: &str) -> Result<SyncReport> {
+        self.sync_via(device_id, &[], AUTO_SYNC_TIMEOUT)
+    }
+
     /// Like [`SyncNode::sync_with`], also trying `extra_addrs` ("ip:port")
-    /// after the last known address. The address that works is saved.
+    /// after the last known address, then the addresses where the Device
+    /// announces itself on the network (with [`SyncNode::set_discovery`]).
+    /// The address that works is saved.
     pub fn sync_with_addrs(&self, device_id: &str, extra_addrs: &[String]) -> Result<SyncReport> {
+        let timeout = *self
+            .inner
+            .connect_timeout
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        self.sync_via(device_id, extra_addrs, timeout)
+    }
+
+    fn sync_via(
+        &self,
+        device_id: &str,
+        extra_addrs: &[String],
+        timeout: Duration,
+    ) -> Result<SyncReport> {
         let (peer, key) = peers::get(&*lock(&self.inner.store)?, device_id)?
             .ok_or_else(|| PairingError::UnknownPeer(device_id.to_owned()))?;
         let addrs: Vec<String> = peer.last_addr.iter().chain(extra_addrs).cloned().collect();
@@ -276,11 +344,24 @@ impl SyncNode {
                 peer.name, peer.name
             )));
         }
-        let (mut conn, addr) = match self.connect_any(addrs.into_iter(), &key) {
-            Err(Error::Pairing(PairingError::Unreachable(addrs))) => {
+        let mut connected = self.connect_any(addrs.iter().cloned(), &key, timeout);
+        if let (Err(Error::Pairing(PairingError::Unreachable(_))), Some(discovery)) =
+            (&connected, self.discovery())
+        {
+            let found: Vec<String> = discovery
+                .find(device_id, timeout)
+                .into_iter()
+                .filter(|a| !addrs.contains(a))
+                .collect();
+            if !found.is_empty() {
+                connected = self.connect_any(found.into_iter(), &key, timeout);
+            }
+        }
+        let (mut conn, addr) = match connected {
+            Err(Error::Pairing(PairingError::Unreachable(_))) => {
                 return Err(PairingError::PeerUnreachable {
                     name: peer.name,
-                    addrs,
+                    addrs: addrs.join(", "),
                 }
                 .into())
             }
@@ -313,12 +394,8 @@ impl SyncNode {
         &self,
         addrs: impl Iterator<Item = String>,
         key: &[u8; 32],
+        timeout: Duration,
     ) -> Result<(SecureTransport, String)> {
-        let timeout = *self
-            .inner
-            .connect_timeout
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
         let mut tried = Vec::new();
         let mut last_error = None;
         for addr in addrs {
@@ -477,6 +554,8 @@ pub struct Listener {
     addr: SocketAddr,
     stop: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
+    /// This Device announced on the network while it listens.
+    announcement: Option<Announcement>,
 }
 
 impl Listener {
@@ -489,6 +568,12 @@ impl Listener {
         self.addr.port()
     }
 
+    /// Whether this Device is announced on the network (see
+    /// [`SyncNode::set_discovery`]).
+    pub fn is_announced(&self) -> bool {
+        self.announcement.is_some()
+    }
+
     /// Stop accepting connections, and cancel a pending pairing.
     pub fn stop(mut self) {
         self.shutdown();
@@ -498,6 +583,7 @@ impl Listener {
         let Some(thread) = self.thread.take() else {
             return;
         };
+        self.announcement.take();
         self.stop.store(true, Ordering::SeqCst);
         // Wake the blocking accept with a connection to ourselves.
         let wake: SocketAddr = if self.addr.ip().is_unspecified() {

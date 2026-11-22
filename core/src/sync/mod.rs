@@ -15,12 +15,18 @@
 //!   The encrypted transport (Noise IK over TCP, `u16` length frames) is
 //!   private to it. [`Identity`] is the Device's Noise key pair, and
 //!   [`peers`] the paired Devices.
+//! - [`discovery`]: the listening Device announces itself on the local
+//!   network ([`Mdns`]) while it listens, and a Sync whose known addresses
+//!   fail looks for the Device there ([`SyncNode::set_discovery`]).
+//!   [`SyncNode::sync_automatically`] is the quick Sync when the phone app
+//!   comes to the foreground.
 //!
 //! Received changes are applied with [`Store::apply_remote`](crate::Store::apply_remote),
 //! one DB transaction per batch, so a session cut off halfway keeps every
 //! batch it fully received, and the next session's Hello continues from there.
 
 mod apply;
+pub mod discovery;
 mod identity;
 pub mod memory;
 mod node;
@@ -32,10 +38,11 @@ mod secure;
 mod session;
 
 pub(crate) use apply::apply_op;
+pub use discovery::{Announcement, Discovery, Mdns};
 pub use identity::Identity;
 pub use node::{
-    Joined, Listener, SyncEvents, SyncNode, SyncPhase, SyncProgress, DEFAULT_CONNECT_TIMEOUT,
-    DEFAULT_PORT,
+    Joined, Listener, SyncEvents, SyncNode, SyncPhase, SyncProgress, AUTO_SYNC_TIMEOUT,
+    DEFAULT_CONNECT_TIMEOUT, DEFAULT_PORT,
 };
 pub use pairing::{local_addresses, PairingError, PairingPayload};
 pub use peers::Peer;

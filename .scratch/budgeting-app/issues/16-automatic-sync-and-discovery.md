@@ -4,11 +4,28 @@
 
 **Blocked by:** 15
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 - [ ] When the phone app comes to the foreground, it tries a Sync with a short timeout (about 1.5 s) and fails quietly if the PC can't be reached
 - [ ] While Sync is on, the PC announces itself on the local network. If the last known address fails, the phone looks for the paired PC by its device id before suggesting a QR rescan.
-- [ ] A newly found address is saved as the PC's last known address
+- [x] A newly found address is saved as the PC's last known address
 - [ ] Turning Sync on for the first time on the PC adds a Windows Firewall rule that allows incoming connections on private networks only, explaining why first
-- [ ] The phone shows when the last successful Sync happened
+- [x] The phone shows when the last successful Sync happened
 - [ ] Manual verification: change the PC's IP address (for example by reconnecting to the network) and check that the phone still syncs without a rescan
+
+## Comments
+
+**Implemented what can be built and tested on the PC (2026-11-22). Status is `ready-for-human`:** there is no Android toolchain here (not installed, as in ticket 15), and the firewall rule was not added on this PC (adding one is the user's decision and needs their click).
+
+- **Discovery (core, no Tauri):** `core/src/sync/discovery.rs`: the `Discovery` trait and `Mdns` (crate `mdns-sd` 0.22, its own thread, no async runtime, so ADR 0003 holds). `SyncNode::set_discovery(Arc<dyn Discovery>)` makes `listen` announce the Device as `_bsync._tcp.local.` while the `Listener` lives (TXT `id` = device id; addresses follow the PC's interfaces, also when they change), and `Listener::is_announced()`. When every known address fails, `sync_with` / `sync_with_addrs` look for the Device by its id, connect to what they find (the Noise key is still checked), and save the address that worked as `last_addr`. Only then do they fail with `PeerUnreachable` (the rescan suggestion). The shell gives every Device `Mdns::new()` (IPv4, port 5353, no loopback; the socket opens only on first use).
+- **Automatic Sync:** `SyncNode::sync_automatically(id)` waits at most `AUTO_SYNC_TIMEOUT` = 1.5 s to connect and as long to find the PC. Shell command `sync_auto(device_id)`. `PhoneHome` calls it on start and on `visibilitychange` to visible, at most once per 15 s (`shouldAutoSync` in `src/autoSync.ts`), shows nothing when it fails, and shows the last successful Sync as "just now" / "5 minutes ago" / "2 hours ago" / a date (`lastSyncText`). "Sync now" still shows the error and the rescan button.
+- **Firewall (Windows):** `src-tauri/src/firewall.rs`. One inbound rule "Budgeting app (Sync)" for the running program, `profile=private`, any protocol (covers the Sync port, a changed port, and mDNS UDP 5353). The first time Allow Sync is turned on and the rule is missing, Settings explains why first, with **Add the rule and turn on Sync** / **Turn on without it** / Cancel. Adding runs `netsh advfirewall firewall add rule ...` elevated through PowerShell `Start-Process -Verb RunAs` (`-EncodedCommand`), so Windows asks for permission. A declined prompt is error kind `firewall` and leaves Sync as it was. `sync_server_set(enabled, port, firewall?)` takes the answer; `firewall_asked` in `sync.json` stops the explanation from showing again. `sync_status` adds `announced`, `firewall` (`allowed` / `missing` / `not_needed`, read with `netsh ... show rule`, which needs no rights) and `firewall_asked`. While listening without the rule, Settings offers "Add firewall rule (private networks only)". Remove it with `netsh advfirewall firewall delete rule name="Budgeting app (Sync)"` (admin).
+- **Docs:** sync-design.md §2.6 (as built) and §3.4, README (Pairing and Sync, Phone), ADR 0003 consequence.
+- **Tests:** 9 new Rust tests: `core/tests/discovery.rs` (3: found by device id, another Device's announcement ignored, not found after it stops announcing), `core/tests/automatic_sync.rs` (2, real TCP plus mDNS on loopback on a test port: the PC comes back at a new address and the phone finds it, syncs and saves the new address; the automatic Sync gives up within 3.5 s with `PeerUnreachable` when Sync is off on the PC), and 4 unit tests in `src-tauri/src/firewall.rs` (the exact netsh rule, quoting in the elevated script, the UTF-16 base64 encoding, recognising the rule for this program). 15 new UI tests (`src/autoSync.test.ts`, and `needsFirewallExplanation` in `src/sync.test.ts`). In total 221 Rust tests and 116 UI tests. Clippy 0 warnings; fmt, typecheck and build pass. The mDNS tests use only the loopback interface and UDP port 25353/25354, so they send nothing on the real network.
+- **Not verified:** the app was not run by hand; the elevated `netsh` was not run (the netsh output format and exit codes of `show rule` were checked read-only on this PC); nothing ran on Android.
+
+**Remaining (needs a phone, the Android toolchain, or a click on the PC):**
+1. **Android multicast lock:** many Android phones drop multicast packets unless the app holds a `WifiManager.MulticastLock` (permission `CHANGE_WIFI_MULTICAST_STATE`). This needs Kotlin (a small Tauri mobile plugin) or JNI code and the generated Android project (`src-tauri/gen/android`, ticket 15), and isn't done. Without it the phone may not find the PC and falls back to suggesting a rescan. Also check that `mdns-sd` builds for the Android targets.
+2. On the phone: the automatic Sync when the app comes to the foreground, quiet when the PC is off (criterion 1), and the last Sync line on Home.
+3. On the PC: turn on Allow Sync for the first time, read the explanation, choose **Add the rule and turn on Sync**, accept Windows' prompt, and check the rule in Windows Defender Firewall → Inbound Rules (private profile only) (criterion 4). If Windows' own prompt was declined earlier, its block rule wins over this one: remove it there.
+4. Manual verification (criterion 6): change the PC's IP address (reconnect to the network), then open the phone app: it should sync without a rescan, and Settings → Sync on the phone should show the new address.

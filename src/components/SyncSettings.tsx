@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { api, errorMessage, JoinResult, PairingInfo, Peer, SyncProgress, SyncReport, SyncStatus } from "../api";
 import { isUnreachable } from "../phone";
-import { expiresIn, progressText, syncSummary } from "../sync";
+import { expiresIn, needsFirewallExplanation, progressText, syncSummary } from "../sync";
 import PairWithPc from "./PairWithPc";
 import PairingQr from "./PairingQr";
 
@@ -16,6 +16,7 @@ export default function SyncSettings({ mobile = false }: { mobile?: boolean }) {
   const [pairing, setPairing] = useState<PairingInfo | null>(null);
   const [now, setNow] = useState(Date.now());
   const [rescan, setRescan] = useState(false);
+  const [explainFirewall, setExplainFirewall] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -71,14 +72,22 @@ export default function SyncSettings({ mobile = false }: { mobile?: boolean }) {
     }
   }
 
-  async function setServer(enabled: boolean) {
+  /** `firewall`: the answer to the firewall explanation, shown first the first time Sync is turned on. */
+  async function setServer(enabled: boolean, firewall?: boolean) {
     const portNumber = Number(port);
     if (!Number.isInteger(portNumber) || portNumber < 1 || portNumber > 65535) {
       setError("Choose a port between 1 and 65535.");
       return;
     }
-    const next = await run("server", () => api.syncServerSet(enabled, portNumber));
-    if (next) setStatus(next);
+    if (firewall === undefined && status && needsFirewallExplanation(status, enabled)) {
+      setExplainFirewall(true);
+      return;
+    }
+    const next = await run("server", () => api.syncServerSet(enabled, portNumber, firewall));
+    if (next) {
+      setStatus(next);
+      setExplainFirewall(false);
+    }
     if (!enabled) setPairing(null);
   }
 
@@ -148,13 +157,45 @@ export default function SyncSettings({ mobile = false }: { mobile?: boolean }) {
           </label>
         </div>
       )}
+      {explainFirewall && (
+        <div className="notice">
+          <p className="small">
+            <b>Windows Firewall.</b> Your phone connects to this PC to Sync, and Windows Firewall blocks incoming
+            connections unless a rule allows them. The app can add a rule that lets other Devices reach this app on{" "}
+            <b>private networks only</b> (like your home Wi-Fi), never on public networks such as a café. It covers
+            the Sync port and the network announcement your phone uses to find this PC. Windows will ask for your
+            permission.
+          </p>
+          <div className="actions">
+            <button className="primary" disabled={busy !== null} onClick={() => void setServer(true, true)}>
+              Add the rule and turn on Sync
+            </button>
+            <button disabled={busy !== null} onClick={() => void setServer(true, false)}>
+              Turn on without it
+            </button>
+            <button disabled={busy !== null} onClick={() => setExplainFirewall(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {status?.enabled && !status.listening && (
         <p className="error small">Sync is on but the app couldn't listen on port {status.port}. Try another port.</p>
       )}
       {status?.listening && (
         <p className="muted small">
-          Listening on {status.addrs.join(", ")} port {status.port}. The first time, Windows may ask to allow the
-          app on the network: allow it for private networks.
+          Listening on {status.addrs.join(", ")} port {status.port}.
+          {status.announced && " Announced on the local network, so your phone finds this PC even after its address changes."}
+          {status.firewall === "allowed" && " Windows Firewall allows Sync on private networks."}
+        </p>
+      )}
+      {status?.listening && status.firewall === "missing" && (
+        <p className="muted small">
+          Windows Firewall has no rule for Sync, so your phone may not reach this PC. If Windows asked to allow the
+          app, allowing it on private networks also works.{" "}
+          <button disabled={busy !== null} onClick={() => void setServer(true, true)}>
+            Add firewall rule (private networks only)
+          </button>
         </p>
       )}
 
