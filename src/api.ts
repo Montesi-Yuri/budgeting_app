@@ -150,7 +150,11 @@ export type TransferView = Transfer & { out_txn: TransactionView | null; in_txn:
 export type ReviewItem =
   | { kind: "transfer_suggestion"; transfer: TransferView }
   /** A Transfer with one side whose Period has ended: "other side not imported yet". */
-  | { kind: "transfer_missing_side"; transfer: TransferView };
+  | { kind: "transfer_missing_side"; transfer: TransferView }
+  /** An imported Transaction suggested as the actual of a Planned item's occurrence. */
+  | { kind: "fulfilment_suggestion"; fulfilment: Fulfilment }
+  /** An occurrence still expected after its Period ended: "skipped or arrives later?". */
+  | { kind: "still_expected"; occurrence: Occurrence };
 
 /** pending_count: the items waiting for a decision (the badge). */
 export type ReviewList = { items: ReviewItem[]; pending_count: number };
@@ -409,6 +413,8 @@ export type PeriodSpendable = {
   expected_expenses_minor: number;
   /** The Period's Set-asides, negative for Expenses. */
   set_asides_minor: number;
+  /** Transactions fulfilling items spread as Set-asides, taken back out (positive for Expenses). */
+  covered_by_set_asides_minor: number;
   savings_target_minor: number;
   spendable_minor: number;
   /** Only when today is in this Period. */
@@ -449,14 +455,19 @@ export type NewPlannedItem = PlannedItemFields & { set_aside: boolean | null };
 
 export type PlannedItem = PlannedItemFields & { id: string; set_aside: boolean };
 
-/** An expected occurrence, calculated from the schedule (never stored). */
+/** An occurrence still expected: calculated from the schedule and the stored decisions. */
 export type Occurrence = {
+  /** Derived from the Planned item and scheduled_date. */
+  id: string;
   planned_item_id: string;
   description: string;
   account_id: string;
   category_id: string;
   kind: CategoryKind;
+  /** When it is expected: the schedule's date, or the new date if it arrives later. */
   due_date: string;
+  /** The schedule's date, which identifies the occurrence. */
+  scheduled_date: string;
   amount_minor: number;
   /** The item is spread as Set-asides, so this occurrence isn't counted again. */
   set_aside: boolean;
@@ -472,7 +483,13 @@ export type SetAside = {
   amount_minor: number;
 };
 
-export type PeriodPlan = { period: string; occurrences: Occurrence[]; set_asides: SetAside[] };
+export type PeriodPlan = {
+  period: string;
+  occurrences: Occurrence[];
+  set_asides: SetAside[];
+  /** Transactions fulfilling items spread as Set-asides, taken back out of Spendable. */
+  covered_by_set_asides_minor: number;
+};
 
 export const plannedApi = {
   list: () => invoke<PlannedItem[]>("planned_items_list"),
@@ -528,4 +545,32 @@ export type Forecast = {
 export const forecastApi = {
   /** `today` is the local date (YYYY-MM-DD). */
   get: (today: string) => invoke<Forecast>("forecast_get", { today }),
+};
+
+/** A fulfilled occurrence: the Planned item next to its actual Transaction. */
+export type Fulfilment = {
+  /** The occurrence id. */
+  id: string;
+  planned_item_id: string;
+  description: string;
+  /** The schedule's date of the occurrence. */
+  due_date: string;
+  planned_amount_minor: number;
+  status: LinkStatus;
+  transaction: TransactionView;
+};
+
+export const fulfilmentApi = {
+  /** Every fulfilled occurrence (suggested or confirmed), oldest first. */
+  list: () => invoke<Fulfilment[]>("fulfilments_list"),
+  /** Link a Transaction by hand to the occurrence due on dueDate (the schedule's date). */
+  link: (plannedItemId: string, dueDate: string, txnId: string) =>
+    invoke<unknown>("fulfilment_link", { plannedItemId, dueDate, txnId }),
+  confirm: (id: string) => invoke<unknown>("fulfilment_confirm", { id }),
+  /** Reject a Suggestion or unlink: the occurrence is expected again; never suggested again. */
+  unlink: (id: string) => invoke<unknown>("fulfilment_unlink", { id }),
+  skip: (plannedItemId: string, dueDate: string) => invoke<unknown>("occurrence_skip", { plannedItemId, dueDate }),
+  /** It is now expected on newDate (after dueDate). */
+  arrivesLater: (plannedItemId: string, dueDate: string, newDate: string) =>
+    invoke<unknown>("occurrence_arrives_later", { plannedItemId, dueDate, newDate }),
 };

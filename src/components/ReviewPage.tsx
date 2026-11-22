@@ -3,6 +3,7 @@ import { api, errorMessage, ReviewList, TransactionView, TransferView } from "..
 import { formatMinor } from "../money";
 import { localToday } from "../periods";
 import { linkCandidates, sideText } from "../review";
+import PlannedReview from "./PlannedReview";
 import { Money } from "./TransactionsPage";
 
 const ORIGIN_LABEL: Record<TransferView["origin"], string> = {
@@ -91,6 +92,8 @@ export default function ReviewPage({ currency, onChanged }: { currency: string; 
           </ul>
         </section>
       )}
+
+      <PlannedReview currency={currency} review={review} transactions={transactions} run={run} />
 
       <LinkForm currency={currency} transactions={transactions} transfers={transfers} onLink={(a, b) => run(() => api.transferLink(a, b))} />
 

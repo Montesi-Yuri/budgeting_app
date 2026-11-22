@@ -476,3 +476,74 @@ pub fn forecast_get(
     let today = today.parse()?;
     budget_core::forecast::for_today(&*lock(&store)?, today).map_err(Into::into)
 }
+
+/// Every fulfilled occurrence of a Planned item with its Transaction.
+#[tauri::command]
+pub fn fulfilments_list(
+    store: State<'_, AppStore>,
+) -> CmdResult<Vec<budget_core::fulfilment::Fulfilment>> {
+    budget_core::fulfilment::list(&*lock(&store)?).map_err(Into::into)
+}
+
+/// Link a Transaction by hand to the occurrence of a Planned item due on
+/// `due_date` (`YYYY-MM-DD`, the schedule's date).
+#[tauri::command]
+pub fn fulfilment_link(
+    store: State<'_, AppStore>,
+    planned_item_id: String,
+    due_date: String,
+    txn_id: String,
+) -> CmdResult<budget_core::fulfilment::PlannedOccurrence> {
+    let due_date = due_date.parse()?;
+    budget_core::fulfilment::link(&mut *lock(&store)?, &planned_item_id, due_date, &txn_id)
+        .map_err(Into::into)
+}
+
+/// Confirm a suggested fulfilment.
+#[tauri::command]
+pub fn fulfilment_confirm(
+    store: State<'_, AppStore>,
+    id: String,
+) -> CmdResult<budget_core::fulfilment::PlannedOccurrence> {
+    budget_core::fulfilment::confirm(&mut *lock(&store)?, &id).map_err(Into::into)
+}
+
+/// Reject a suggested fulfilment, or unlink a confirmed one.
+#[tauri::command]
+pub fn fulfilment_unlink(
+    store: State<'_, AppStore>,
+    id: String,
+) -> CmdResult<budget_core::fulfilment::PlannedOccurrence> {
+    budget_core::fulfilment::unlink(&mut *lock(&store)?, &id).map_err(Into::into)
+}
+
+/// Mark an occurrence (Planned item + the schedule's due date) skipped.
+#[tauri::command]
+pub fn occurrence_skip(
+    store: State<'_, AppStore>,
+    planned_item_id: String,
+    due_date: String,
+) -> CmdResult<budget_core::fulfilment::PlannedOccurrence> {
+    let due_date = due_date.parse()?;
+    budget_core::fulfilment::skip(&mut *lock(&store)?, &planned_item_id, due_date)
+        .map_err(Into::into)
+}
+
+/// An occurrence arrives later: it is now expected on `new_date`.
+#[tauri::command]
+pub fn occurrence_arrives_later(
+    store: State<'_, AppStore>,
+    planned_item_id: String,
+    due_date: String,
+    new_date: String,
+) -> CmdResult<budget_core::fulfilment::PlannedOccurrence> {
+    let due_date = due_date.parse()?;
+    let new_date = new_date.parse()?;
+    budget_core::fulfilment::arrives_later(
+        &mut *lock(&store)?,
+        &planned_item_id,
+        due_date,
+        new_date,
+    )
+    .map_err(Into::into)
+}

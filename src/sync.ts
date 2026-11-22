@@ -17,7 +17,10 @@ const VIEWS_BY_ENTITY: Record<string, DataView[]> = {
   // Transactions in a Transfer leave the Uncategorised list and Budgets.
   transfer: ["forecast", "review", "uncategorised", "budgets"],
   budget: ["forecast", "budgets"],
-  planned_item: ["forecast", "planned"],
+  // What is still expected (the review list) follows the Planned items.
+  planned_item: ["forecast", "review", "planned"],
+  // Fulfilled, skipped or moved occurrences leave or join the review list and the Forecast.
+  planned_occurrence: ["forecast", "review"],
   rule: ["rules"],
   import_profile: ["import"],
   import_batch: ["import"],

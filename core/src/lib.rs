@@ -10,6 +10,7 @@ pub mod date;
 mod db;
 pub mod error;
 pub mod forecast;
+pub mod fulfilment;
 pub mod hlc;
 pub mod ids;
 pub mod imports;

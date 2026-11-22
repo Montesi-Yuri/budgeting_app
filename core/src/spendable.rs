@@ -10,6 +10,7 @@
 //! + expected Income occurrences of Planned items in the Period
 //! + expected Expense occurrences of Planned items in the Period
 //! + Set-asides for the Period (negative for Expenses)
+//! − Transactions fulfilling items spread as Set-asides (already covered)
 //! − Savings target
 //! ```
 //!
@@ -18,11 +19,10 @@
 //! Set-aside: its own occurrences are left out, so the Period it falls due in
 //! isn't hit twice (see [`crate::planned`]).
 //!
-//! Transfers are left out of the totals ([`crate::transfers`]). Later
-//! tickets extend this: Manual Transactions hidden by a match are left out
-//! too (07); fulfilled occurrences stop
-//! being expected, and Transactions fulfilling an item spread as Set-asides
-//! are left out of the totals (09). A new term is a new field on
+//! Transfers are left out of the totals ([`crate::transfers`]). A fulfilled
+//! occurrence is no longer expected: its Transaction counts instead, so
+//! nothing counts twice ([`crate::fulfilment`]). Later tickets extend this:
+//! Manual Transactions hidden by a match are left out too (07). A new term is a new field on
 //! [`PeriodSpendable`], filled in [`for_period`] and added in
 //! [`PeriodSpendable::calculate`].
 
@@ -57,6 +57,10 @@ pub struct PeriodSpendable {
     pub expected_expenses_minor: i64,
     /// The Period's Set-asides, signed: negative for Expenses.
     pub set_asides_minor: i64,
+    /// The Period's Transactions that fulfil items spread as Set-asides,
+    /// taken back out of the totals above (positive for an Expense): the
+    /// Set-asides already cover them.
+    pub covered_by_set_asides_minor: i64,
     /// The Savings target, set aside from every Period (positive).
     pub savings_target_minor: i64,
     /// How much the user can still spend in the Period. Negative when
@@ -80,12 +84,14 @@ impl PeriodSpendable {
         let expected_income_minor = plan.expected_income_minor();
         let expected_expenses_minor = plan.expected_expenses_minor();
         let set_asides_minor = plan.set_asides_minor();
+        let covered_by_set_asides_minor = plan.covered_by_set_asides_minor;
         let spendable_minor = totals.income_minor
             + totals.expenses_minor
             + totals.uncategorised_minor
             + expected_income_minor
             + expected_expenses_minor
             + set_asides_minor
+            + covered_by_set_asides_minor
             - savings_target_minor;
         PeriodSpendable {
             period,
@@ -97,6 +103,7 @@ impl PeriodSpendable {
             expected_income_minor,
             expected_expenses_minor,
             set_asides_minor,
+            covered_by_set_asides_minor,
             savings_target_minor,
             spendable_minor,
             weekly: (Period::containing(today) == period)

@@ -227,10 +227,11 @@ CREATE TABLE planned_occurrence (
                                            -- produce the same id for the same occurrence
   planned_item_id TEXT NOT NULL REFERENCES planned_item(id),
   due_date        TEXT NOT NULL,
-  state           TEXT NOT NULL,           -- 'fulfilled' | 'skipped' | 'later'
-  txn_id          TEXT REFERENCES txn(id), -- for 'fulfilled'
-  link_status     TEXT,                    -- 'suggested' | 'confirmed' (for 'fulfilled')
-  later_date      TEXT                     -- for 'later': new expected date
+  state           TEXT NOT NULL,           -- 'fulfilled' | 'skipped' | 'later' | 'expected'
+                                           -- ('expected' only remembers a rejected fulfilment)
+  txn_id          TEXT REFERENCES txn(id), -- for 'fulfilled', or the rejected txn
+  link_status     TEXT,                    -- 'suggested' | 'confirmed' | 'rejected'
+  later_date      TEXT                     -- for 'later': new expected date (kept if fulfilled later)
 );
 
 CREATE TABLE budget (
@@ -341,7 +342,7 @@ Each step is a normal row write, so the merge syncs like any other change.
 These are pure functions over the tables above, recalculated after every write and every Sync batch.
 
 - **Balance of an Account on day D:** `opening_minor` plus the sum of `amount_minor` for txns with `opening_date < date <= D`, excluding manual txns that are hidden by a match.
-- **Expected occurrences:** expanded from `planned_item.rrule` for the range needed, minus those with a stored `planned_occurrence` (fulfilled or skipped), with `later` ones moved to `later_date`.
+- **Expected occurrences:** expanded from `planned_item.rrule` for the range needed, minus those with a stored `planned_occurrence` (skipped, or fulfilled by a live txn with a link that isn't rejected), with `later` ones moved to `later_date`. One still expected after its Period has ended is listed for review ("skipped or arrives later?").
 - **Set-aside per Period:** for each `planned_item` with `set_aside = 1`, its yearly total divided by 12.
 - **Spendable for Period P**, all values signed, with expenses negative:
   ```

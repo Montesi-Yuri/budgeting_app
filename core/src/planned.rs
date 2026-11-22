@@ -13,12 +13,15 @@
 //! every Period's Spendable, and its own occurrences are left out of
 //! Spendable so the Period it falls due in isn't hit twice.
 
+use std::collections::HashMap;
+
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use crate::categories::{self, CategoryKind};
 use crate::date::{days_in_month, Date};
 use crate::error::{Error, Result};
+use crate::fulfilment;
 use crate::hlc::Hlc;
 use crate::period::Period;
 use crate::store::{Store, SyncedRow};
@@ -305,7 +308,7 @@ pub fn list(store: &Store) -> Result<Vec<PlannedItem>> {
     live_items(store.conn())
 }
 
-fn find_live(conn: &Connection, id: &str) -> Result<PlannedItem> {
+pub(crate) fn find_live(conn: &Connection, id: &str) -> Result<PlannedItem> {
     live_items(conn)?
         .into_iter()
         .find(|i| i.id == id)
@@ -414,18 +417,24 @@ fn live_items(conn: &Connection) -> Result<Vec<PlannedItem>> {
     .collect()
 }
 
-/// One expected occurrence of a Planned item: calculated from its schedule,
-/// never stored.
+/// One expected occurrence of a Planned item: calculated from its schedule
+/// and the stored decisions about it ([`crate::fulfilment`]).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Occurrence {
+    /// [`crate::fulfilment::occurrence_id`] of the item and `scheduled_date`.
+    pub id: String,
     pub planned_item_id: String,
     pub description: String,
     pub account_id: String,
     pub category_id: String,
     /// Income or Expense, from the item's Category.
     pub kind: CategoryKind,
-    /// The date it is expected on.
+    /// The date it is expected on: the schedule's date, or the new date if
+    /// the user said it arrives later.
     pub due_date: Date,
+    /// The date the schedule gives it, which identifies the occurrence.
+    /// Differs from `due_date` only when it arrives later.
+    pub scheduled_date: Date,
     /// The planned amount, signed as it will appear on the Account.
     pub amount_minor: i64,
     /// The item is spread as Set-asides, so this occurrence is left out of
@@ -433,32 +442,67 @@ pub struct Occurrence {
     pub set_aside: bool,
 }
 
-/// The expected occurrences of every live Planned item on a live Account
-/// within `from..=to`, ordered by date. This is where fulfilment (ticket
-/// 09: leave out fulfilled and skipped occurrences, move "arrives later"
-/// ones) and the Forecast (ticket 11) plug in.
+/// The occurrences still expected within `from..=to` (by the date they are
+/// expected on), of every live Planned item on a live Account, ordered by
+/// date. This is the one source of "still expected" for Spendable, the
+/// review list and the Forecast (ticket 11): fulfilled and skipped
+/// occurrences are left out, and those that arrive later are moved to
+/// their new date (sync-design §1.7).
 pub fn expected_occurrences(store: &Store, from: Date, to: Date) -> Result<Vec<Occurrence>> {
-    let conn = store.conn();
+    expected_between(store.conn(), from, to)
+}
+
+pub(crate) fn expected_between(conn: &Connection, from: Date, to: Date) -> Result<Vec<Occurrence>> {
+    let mut stored = HashMap::new();
+    for row in fulfilment::all(conn)? {
+        let settled = fulfilment::settled(conn, &row)?;
+        stored.insert(row.id.clone(), (row, settled));
+    }
     let mut out = Vec::new();
     for item in live_items(conn)? {
         if !account_is_live(conn, &item.account_id)? {
             continue;
         }
         let kind = kind_of(conn, &item)?;
-        for due_date in item.occurrences_between(from, to) {
-            out.push(Occurrence {
-                planned_item_id: item.id.clone(),
-                description: item.description.clone(),
-                account_id: item.account_id.clone(),
-                category_id: item.category_id.clone(),
-                kind,
-                due_date,
-                amount_minor: item.amount_minor,
-                set_aside: item.set_aside,
-            });
+        let occurrence = |scheduled_date: Date, due_date: Date| Occurrence {
+            id: fulfilment::occurrence_id(&item.id, scheduled_date),
+            planned_item_id: item.id.clone(),
+            description: item.description.clone(),
+            account_id: item.account_id.clone(),
+            category_id: item.category_id.clone(),
+            kind,
+            due_date,
+            scheduled_date,
+            amount_minor: item.amount_minor,
+            set_aside: item.set_aside,
+        };
+        for scheduled_date in item.occurrences_between(from, to) {
+            let id = fulfilment::occurrence_id(&item.id, scheduled_date);
+            match stored.get(&id) {
+                Some((row, settled)) if *settled || row.expected_date() != scheduled_date => {}
+                _ => out.push(occurrence(scheduled_date, scheduled_date)),
+            }
+        }
+        // Occurrences that arrive later, moved into the range.
+        for (row, settled) in stored.values() {
+            let moved_to = row.expected_date();
+            if row.planned_item_id != item.id
+                || *settled
+                || moved_to == row.due_date
+                || moved_to < from
+                || to < moved_to
+                || item
+                    .occurrences_between(row.due_date, row.due_date)
+                    .is_empty()
+            {
+                continue;
+            }
+            out.push(occurrence(row.due_date, moved_to));
         }
     }
-    out.sort_by(|a, b| (a.due_date, &a.description).cmp(&(b.due_date, &b.description)));
+    out.sort_by(|a, b| {
+        (a.due_date, &a.description, &a.id).cmp(&(b.due_date, &b.description, &b.id))
+    });
     Ok(out)
 }
 
@@ -485,6 +529,11 @@ pub struct PeriodPlan {
     /// items spread as Set-asides (marked `set_aside`).
     pub occurrences: Vec<Occurrence>,
     pub set_asides: Vec<SetAside>,
+    /// The Period's Transactions that fulfil occurrences of items spread as
+    /// Set-asides, negated (positive for an Expense): Spendable adds this to
+    /// take them back out of its totals, since the Set-asides already cover
+    /// them.
+    pub covered_by_set_asides_minor: i64,
 }
 
 impl PeriodPlan {
@@ -535,7 +584,30 @@ pub fn for_period(store: &Store, period: Period) -> Result<PeriodPlan> {
         period,
         occurrences: expected_occurrences(store, period.first_day(), period.last_day())?,
         set_asides,
+        covered_by_set_asides_minor: covered_by_set_asides(conn, period)?,
     })
+}
+
+/// Minus the sum of the Period's live Transactions (not in a Transfer, on
+/// live Accounts) that fulfil an item spread as Set-asides.
+fn covered_by_set_asides(conn: &Connection, period: Period) -> Result<i64> {
+    let sql = format!(
+        "SELECT COALESCE(SUM(t.amount_minor), 0) FROM txn t
+         JOIN account a ON a.id = t.account_id AND a.deleted = 0
+         WHERE t.deleted = 0 AND t.date BETWEEN ?1 AND ?2
+           AND t.id IN ({}) AND t.id NOT IN ({})",
+        fulfilment::FULFILLING_SET_ASIDE_SQL,
+        crate::transfers::IN_TRANSFER_SQL
+    );
+    let sum: i64 = conn.query_row(
+        &sql,
+        params![
+            period.first_day().to_string(),
+            period.last_day().to_string()
+        ],
+        |r| r.get(0),
+    )?;
+    Ok(-sum)
 }
 
 fn account_is_live(conn: &Connection, id: &str) -> Result<bool> {

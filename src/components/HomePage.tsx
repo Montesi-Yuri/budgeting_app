@@ -133,6 +133,12 @@ export default function HomePage({ currency }: { currency: string }) {
                   <td>Set-asides</td>
                   <td>{money(data.set_asides_minor)}</td>
                 </tr>
+                {data.covered_by_set_asides_minor !== 0 && (
+                  <tr>
+                    <td>Paid from Set-asides (already set aside)</td>
+                    <td>{money(data.covered_by_set_asides_minor)}</td>
+                  </tr>
+                )}
                 <tr>
                   <td>Savings target</td>
                   <td>{money(-data.savings_target_minor)}</td>
