@@ -8,6 +8,7 @@ import AccountsPage from "./components/AccountsPage";
 import BudgetsPage from "./components/BudgetsPage";
 import CategoriesPage from "./components/CategoriesPage";
 import CurrencyPicker from "./components/CurrencyPicker";
+import ForecastPage from "./components/ForecastPage";
 import HomePage from "./components/HomePage";
 import ImportPage from "./components/ImportPage";
 import PairWithPc from "./components/PairWithPc";
@@ -20,10 +21,11 @@ import SettingsPage from "./components/SettingsPage";
 import TransactionsPage from "./components/TransactionsPage";
 import UncategorisedPage from "./components/UncategorisedPage";
 
-type View = "home" | "review" | "accounts" | "transactions" | "uncategorised" | "categories" | "settings" | "budgets" | "import" | "planned" | "rules";
+type View = "home" | "forecast" | "review" | "accounts" | "transactions" | "uncategorised" | "categories" | "settings" | "budgets" | "import" | "planned" | "rules";
 
 const VIEWS: { view: View; label: string }[] = [
   { view: "home", label: "Home" },
+  { view: "forecast", label: "Forecast" },
   { view: "review", label: "To review" },
   { view: "accounts", label: "Accounts" },
   { view: "transactions", label: "Transactions" },
@@ -133,6 +135,7 @@ export default function App() {
       </header>
       <main className="page" key={`${view}-${refreshed[view] ?? 0}`}>
         {view === "home" && (mobile ? <PhoneHome currency={currency} /> : <HomePage currency={currency} />)}
+        {view === "forecast" && <ForecastPage currency={currency} />}
         {view === "review" && <ReviewPage currency={currency} onChanged={() => void loadPending()} />}
         {view === "accounts" && <AccountsPage currency={currency} />}
         {view === "transactions" && <TransactionsPage currency={currency} />}

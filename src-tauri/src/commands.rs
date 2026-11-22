@@ -466,3 +466,13 @@ pub fn savings_progress_get(
     let period = period.parse()?;
     budget_core::transfers::savings_progress(&*lock(&store)?, period).map_err(Into::into)
 }
+
+/// The Forecast on `today` (`YYYY-MM-DD`, the UI's local date).
+#[tauri::command]
+pub fn forecast_get(
+    store: State<'_, AppStore>,
+    today: String,
+) -> CmdResult<budget_core::forecast::Forecast> {
+    let today = today.parse()?;
+    budget_core::forecast::for_today(&*lock(&store)?, today).map_err(Into::into)
+}

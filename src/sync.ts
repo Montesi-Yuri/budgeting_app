@@ -4,20 +4,20 @@ import type { SyncProgress, SyncReport, SyncStatus } from "./api";
 
 /** The views of App.tsx that show synced data. */
 // Home refreshes itself on `data://changed`, so it is not listed here.
-export type DataView = "review" | "accounts" | "transactions" | "uncategorised" | "categories" | "budgets" | "import" | "planned" | "rules";
+export type DataView = "forecast" | "review" | "accounts" | "transactions" | "uncategorised" | "categories" | "budgets" | "import" | "planned" | "rules";
 
-const ALL_VIEWS: DataView[] = ["review", "accounts", "transactions", "uncategorised", "categories", "budgets", "import", "planned", "rules"];
+const ALL_VIEWS: DataView[] = ["forecast", "review", "accounts", "transactions", "uncategorised", "categories", "budgets", "import", "planned", "rules"];
 
 /** Which views show each synced entity (by `op.entity`, the table name). */
 const VIEWS_BY_ENTITY: Record<string, DataView[]> = {
   // Account names and balances appear in every list.
-  account: ["review", "accounts", "transactions", "uncategorised", "import", "planned", "rules"],
-  category: ["transactions", "uncategorised", "categories", "budgets", "planned", "rules"],
-  txn: ["review", "accounts", "transactions", "uncategorised", "budgets"],
+  account: ["forecast", "review", "accounts", "transactions", "uncategorised", "import", "planned", "rules"],
+  category: ["forecast", "transactions", "uncategorised", "categories", "budgets", "planned", "rules"],
+  txn: ["forecast", "review", "accounts", "transactions", "uncategorised", "budgets"],
   // Transactions in a Transfer leave the Uncategorised list and Budgets.
-  transfer: ["review", "uncategorised", "budgets"],
-  budget: ["budgets"],
-  planned_item: ["planned"],
+  transfer: ["forecast", "review", "uncategorised", "budgets"],
+  budget: ["forecast", "budgets"],
+  planned_item: ["forecast", "planned"],
   rule: ["rules"],
   import_profile: ["import"],
   import_batch: ["import"],
