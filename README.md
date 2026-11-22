@@ -35,6 +35,32 @@ set BUDGET_DATA_DIR=%TEMP%\budget-second && target\debug\budgeting-app.exe
 
 The pairing code lists the PC's private network addresses (or `127.0.0.1` if it has none), and either works between two instances on one PC. A second instance started with `npm run tauri dev` would clash with the first one's dev server, so use the built app.
 
+## Phone (Android)
+
+The phone build is the same app: the same `core/` data and Sync code, the phone layout (Spendable, Weekly Spendable, quick add and Sync now on Home) and a camera scanner for the PC's pairing QR code (`tauri-plugin-barcode-scanner`, phone build only). On the PC, **Pair new device** shows the QR code; on the phone, **Pair with PC** scans it. If **Sync now** can't reach the PC, the phone offers to rescan the QR code, which only refreshes the PC's address and keeps the Pairing.
+
+One-time setup (Windows, no admin needed for the SDK itself):
+
+1. Install [Android Studio](https://developer.android.com/studio). In its SDK Manager install the Android SDK Platform (API 34 or newer), Android SDK Platform-Tools, Android SDK Command-line Tools and **NDK (Side by side)**.
+2. Set the environment variables (PowerShell, then open a new terminal):
+   ```powershell
+   [Environment]::SetEnvironmentVariable("JAVA_HOME", "C:\Program Files\Android\Android Studio\jbr", "User")
+   [Environment]::SetEnvironmentVariable("ANDROID_HOME", "$env:LocalAppData\Android\Sdk", "User")
+   $ndk = Get-ChildItem "$env:LocalAppData\Android\Sdk\ndk" | Sort-Object Name | Select-Object -Last 1
+   [Environment]::SetEnvironmentVariable("NDK_HOME", $ndk.FullName, "User")
+   ```
+3. Add the Rust targets: `rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android`
+4. Generate the Android project once, and commit `src-tauri/gen/android`: `npx tauri android init`
+
+Build and run:
+
+```sh
+npx tauri android dev      # on a phone connected with USB debugging (or an emulator)
+npx tauri android build --apk --target aarch64   # release APK in src-tauri/gen/android/app/build/outputs/apk/
+```
+
+The camera permission comes from the scanner plugin's manifest and is asked for the first time you scan; the network permission (`INTERNET`) is in the generated manifest. The phone and the PC must be on the same Wi-Fi, with Allow Sync on the PC.
+
 ## Test and check
 
 ```sh
@@ -51,6 +77,6 @@ cargo clippy --workspace --all-targets
 | `core/` | Crate `budget_core`: the database, migrations, the single write path and sync log (`store.rs`), the hybrid logical clock (`hlc.rs`) and the domain modules (`accounts.rs`, `settings.rs`, `period.rs` and `spendable.rs` for Periods, Weeks and Spendable, `imports/` for CSV Imports, `backup.rs` for Backups, ...). It doesn't depend on Tauri. Tests are in `core/tests/`. |
 | `core/migrations/` | SQL migrations, applied in order. Never edit a released one: add a new file. |
 | `src-tauri/` | The Tauri shell: app setup and `#[tauri::command]`s (`commands.rs`; the Backup commands, weekly Backup thread and Windows credential store in `backup_commands.rs`). |
-| `src/` | The React UI. `api.ts` wraps the commands, and `money.ts` formats and parses amounts in minor units. |
+| `src/` | The React UI. `api.ts` wraps the commands, and `money.ts` formats and parses amounts in minor units. The phone build uses `PhoneHome.tsx`, `QuickAdd.tsx` and `PairWithPc.tsx` (camera scanner in `scanner.ts`, helpers in `phone.ts`). |
 
 See [CONTEXT.md](CONTEXT.md) for the glossary, [docs/sync-design.md](docs/sync-design.md) for the data model and sync protocol, and [docs/adr/](docs/adr/) for decisions.

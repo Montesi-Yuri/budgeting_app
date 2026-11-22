@@ -342,7 +342,15 @@ fn ensure_self_device(conn: &Connection) -> Result<String> {
     let id = uuid::Uuid::new_v4().to_string();
     let name = std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
-        .unwrap_or_else(|_| "This device".to_owned());
+        .unwrap_or_else(|_| {
+            // Android sets neither variable; the PC lists the phone by this name.
+            if cfg!(target_os = "android") {
+                "Phone"
+            } else {
+                "This device"
+            }
+            .to_owned()
+        });
     conn.execute(
         "INSERT INTO device (device_id, name, is_self) VALUES (?1, ?2, 1)",
         params![id, name],

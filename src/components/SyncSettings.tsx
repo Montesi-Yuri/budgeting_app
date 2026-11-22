@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { api, errorMessage, PairingInfo, Peer, SyncProgress, SyncReport, SyncStatus } from "../api";
+import { api, errorMessage, JoinResult, PairingInfo, Peer, SyncProgress, SyncReport, SyncStatus } from "../api";
+import { isUnreachable } from "../phone";
 import { expiresIn, progressText, syncSummary } from "../sync";
+import PairWithPc from "./PairWithPc";
+import PairingQr from "./PairingQr";
 
 const when = (unix: number | null) => (unix ? new Date(unix * 1000).toLocaleString() : "never");
 
-/** Sync on/off, Pairing and the paired Devices (Settings page). */
-export default function SyncSettings() {
+/** Sync on/off, Pairing and the paired Devices (Settings page). On the phone, joining scans the PC's QR code. */
+export default function SyncSettings({ mobile = false }: { mobile?: boolean }) {
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [port, setPort] = useState("");
   const [peers, setPeers] = useState<Peer[]>([]);
   const [pairing, setPairing] = useState<PairingInfo | null>(null);
   const [now, setNow] = useState(Date.now());
-  const [joinText, setJoinText] = useState("");
+  const [rescan, setRescan] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -56,10 +59,12 @@ export default function SyncSettings() {
     setBusy(label);
     setError(null);
     setMessage(null);
+    setRescan(false);
     try {
       return await action();
     } catch (e) {
       setError(errorMessage(e));
+      setRescan(isUnreachable(e));
     } finally {
       setBusy(null);
       setProgress(null);
@@ -90,13 +95,11 @@ export default function SyncSettings() {
     await api.pairingCancel();
   }
 
-  async function join() {
-    const joined = await run("join", () => api.pairingJoin(joinText));
-    if (joined) {
-      setJoinText("");
-      setMessage(`Paired with ${joined.peer.name}. ${syncSummary(joined.report)}`);
-      void loadPeers();
-    }
+  function joined(joined: JoinResult) {
+    setError(null);
+    setRescan(false);
+    setMessage(`Paired with ${joined.peer.name}. ${syncSummary(joined.report)}`);
+    void loadPeers();
   }
 
   async function syncNow(peer: Peer) {
@@ -163,8 +166,12 @@ export default function SyncSettings() {
       ) : left ? (
         <div>
           <p className="small">
-            On the other Device, open Settings → Sync and paste this pairing code. It works once, for {left} more.
+            On the phone, choose <b>Pair with PC</b> and scan this QR code. On another PC, paste the code below in
+            Settings → Sync. It works once, and expires at{" "}
+            {new Date(pairing.expires_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} (in{" "}
+            {left}).
           </p>
+          <PairingQr svg={pairing.qr_svg} />
           <textarea readOnly rows={3} className="code" value={pairing.payload} onFocus={(e) => e.target.select()} />
           <div className="actions">
             <button onClick={() => void navigator.clipboard.writeText(pairing.payload)}>Copy</button>
@@ -179,14 +186,9 @@ export default function SyncSettings() {
       )}
       {!status?.listening && !pairing && <p className="muted small">Turn on Allow Sync to pair a new Device.</p>}
 
-      <h3>Join another Device</h3>
-      <p className="muted small">Paste the pairing code shown by "Pair new device" on the other Device.</p>
-      <textarea rows={2} className="code" value={joinText} onChange={(e) => setJoinText(e.target.value)} />
-      <div className="actions">
-        <button disabled={!joinText.trim() || busy !== null} onClick={() => void join()}>
-          {busy === "join" ? "Pairing…" : "Pair"}
-        </button>
-      </div>
+      <h3>{mobile ? "Pair with PC" : "Join another Device"}</h3>
+      {!mobile && <p className="muted small">Paste the pairing code shown by "Pair new device" on the other Device.</p>}
+      <PairWithPc mobile={mobile} onJoined={joined} />
 
       <h3>Paired Devices</h3>
       {peers.length === 0 ? (
@@ -220,6 +222,9 @@ export default function SyncSettings() {
       {progress && <p className="small">{progressText(progress)}</p>}
       {message && <p className="small">{message}</p>}
       {error && <p className="error small">{error}</p>}
+      {rescan && (
+        <PairWithPc mobile={mobile} onJoined={joined} scanLabel="Rescan the PC's QR code (keeps the Pairing)" />
+      )}
     </section>
   );
 }

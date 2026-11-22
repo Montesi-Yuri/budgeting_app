@@ -8,6 +8,8 @@ import CategoriesPage from "./components/CategoriesPage";
 import CurrencyPicker from "./components/CurrencyPicker";
 import HomePage from "./components/HomePage";
 import ImportPage from "./components/ImportPage";
+import PairWithPc from "./components/PairWithPc";
+import PhoneHome from "./components/PhoneHome";
 import RestoreBackup from "./components/RestoreBackup";
 import SettingsPage from "./components/SettingsPage";
 import TransactionsPage from "./components/TransactionsPage";
@@ -26,11 +28,16 @@ const VIEWS: { view: View; label: string }[] = [
   { view: "import", label: "Import" },
 ];
 
+/** The phone's tabs: its main uses are quick add and Spendable, on Home. */
+const PHONE_VIEWS: View[] = ["home", "transactions", "accounts", "categories", "settings"];
+
 export default function App() {
   // undefined = loading, null = not chosen yet (first launch)
   const [currency, setCurrency] = useState<string | null | undefined>(undefined);
   const [view, setView] = useState<View>("home");
   const [error, setError] = useState<string | null>(null);
+  // The phone build gets the phone layout and the QR scanner.
+  const [mobile, setMobile] = useState(false);
 
   // Bumped when a Sync changed what a view shows, so the view refetches.
   const [refreshed, setRefreshed] = useState<Partial<Record<View, number>>>({});
@@ -38,6 +45,7 @@ export default function App() {
   const loadCurrency = () => api.currencyGet().then(setCurrency, (e) => setError(errorMessage(e)));
   useEffect(() => {
     void loadCurrency();
+    api.appInfo().then((info) => setMobile(info.mobile), () => {});
   }, []);
 
   useEffect(() => {
@@ -62,10 +70,26 @@ export default function App() {
 
   if (currency === null) {
     return (
-      <main className="page narrow">
+      <main className={mobile ? "page narrow phone" : "page narrow"}>
         <h1>Welcome</h1>
+        {mobile && (
+          <>
+            <p>Pair with your PC to get all your data, including the Currency.</p>
+            <PairWithPc mobile onJoined={() => void loadCurrency()} />
+            <h2 className="spaced">Or start from scratch</h2>
+          </>
+        )}
         <p>Choose the Currency for all amounts. There is only one, and it is used everywhere in the app.</p>
         <CurrencyPicker initial="EUR" submitLabel="Continue" onSubmit={chooseCurrency} />
+        {!mobile && (
+          <>
+            <h2 className="spaced">Or pair with another Device</h2>
+            <p className="muted small">
+              Already using the app on another PC? Pair with it to get all your data, including the Currency.
+            </p>
+            <PairWithPc mobile={false} onJoined={() => void loadCurrency()} />
+          </>
+        )}
         <h2 className="spaced">Or restore a Backup</h2>
         <p className="muted small">On a new installation, restore a Backup first to get all your data back.</p>
         <RestoreBackup onRestored={() => void loadCurrency()} />
@@ -74,11 +98,11 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={mobile ? "app phone" : "app"}>
       <header className="topbar">
         <span className="brand">Budget</span>
         <nav>
-          {VIEWS.map((v) => (
+          {VIEWS.filter((v) => !mobile || PHONE_VIEWS.includes(v.view)).map((v) => (
             <button key={v.view} className={view === v.view ? "tab active" : "tab"} onClick={() => setView(v.view)}>
               {v.label}
             </button>
@@ -86,7 +110,7 @@ export default function App() {
         </nav>
       </header>
       <main className="page" key={`${view}-${refreshed[view] ?? 0}`}>
-        {view === "home" && <HomePage currency={currency} />}
+        {view === "home" && (mobile ? <PhoneHome currency={currency} /> : <HomePage currency={currency} />)}
         {view === "accounts" && <AccountsPage currency={currency} />}
         {view === "transactions" && <TransactionsPage currency={currency} />}
         {view === "uncategorised" && <UncategorisedPage currency={currency} />}

@@ -40,7 +40,7 @@ export default function SettingsPage({ currency, onCurrencyChange, onRestored }:
       </section>
       <SavingsTargetForm currency={currency} />
       <BackupSettings onRestored={onRestored} />
-      <SyncSettings />
+      <SyncSettings mobile={info?.mobile ?? false} />
       {info && (
         <section className="card">
           <h2>This Device</h2>

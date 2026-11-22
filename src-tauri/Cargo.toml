@@ -21,3 +21,7 @@ tauri-plugin-dialog = "2"
 
 [target."cfg(windows)".dependencies]
 keyring = { version = "3", features = ["windows-native"] }
+
+# The phone build: the camera QR code scanner for Pairing (ticket 15).
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-barcode-scanner = "2"
