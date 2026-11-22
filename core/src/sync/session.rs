@@ -19,7 +19,7 @@ use crate::sync::protocol::{
 const OPS_MESSAGE_OVERHEAD: usize = 64;
 
 /// What a finished (or interrupted) session did.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
 pub struct SyncReport {
     /// The other Device's device id, from its Hello.
     pub peer_device_id: String,
@@ -189,6 +189,9 @@ impl Session {
                 let vv = store.version_vector()?;
                 self.done_sent = Some(vv.clone());
                 Ok(vec![Msg::Done { vv }])
+            }
+            Msg::PairRequest { .. } | Msg::PairOk { .. } => {
+                Err(protocol_error("a pairing message during Sync"))
             }
             Msg::Done { vv } => {
                 let Some(mine) = &self.done_sent else {

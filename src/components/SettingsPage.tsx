@@ -3,6 +3,7 @@ import { api, AppInfo } from "../api";
 import BackupSettings from "./BackupSettings";
 import CurrencyPicker from "./CurrencyPicker";
 import SavingsTargetForm from "./SavingsTargetForm";
+import SyncSettings from "./SyncSettings";
 
 type Props = {
   currency: string;
@@ -39,6 +40,7 @@ export default function SettingsPage({ currency, onCurrencyChange, onRestored }:
       </section>
       <SavingsTargetForm currency={currency} />
       <BackupSettings onRestored={onRestored} />
+      <SyncSettings />
       {info && (
         <section className="card">
           <h2>This Device</h2>

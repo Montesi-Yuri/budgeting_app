@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
 use crate::store::Op;
+use crate::sync::pairing::PairingError;
 
 /// The sync protocol version sent in [`Msg::Hello`]. Two Devices only sync
 /// when they use the same version.
@@ -40,6 +41,17 @@ pub enum Msg {
     Done { vv: VersionVector },
     /// The sender stops the session.
     Error { code: ErrCode, msg: String },
+    /// Pairing (§2.2): the first message of a Device joining with the
+    /// one-time token from the pairing payload, right after the handshake.
+    PairRequest {
+        #[serde(with = "serde_bytes")]
+        token: Vec<u8>,
+        device_id: String,
+        name: String,
+    },
+    /// The listener accepted the token and stored the joining Device. A
+    /// Sync session follows on the same connection.
+    PairOk { device_id: String, name: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,6 +65,10 @@ pub enum ErrCode {
     Protocol,
     /// Something went wrong on the sender's side, such as a database error.
     Internal,
+    /// The pairing token has expired.
+    PairingExpired,
+    /// The pairing token is wrong or was already used.
+    PairingInvalid,
 }
 
 /// Why a Sync session failed. The messages are shown to the user.
@@ -78,6 +94,8 @@ fn refused_text(code: ErrCode, msg: &str) -> String {
                 .to_owned()
         }
         ErrCode::IncompatibleProtocol => "the two Devices use different sync protocol versions: update the app on the Device that is behind".to_owned(),
+        ErrCode::PairingExpired => PairingError::Expired.to_string(),
+        ErrCode::PairingInvalid => PairingError::InvalidToken.to_string(),
         ErrCode::Protocol | ErrCode::Internal => format!("the other Device stopped the Sync: {msg}"),
     }
 }
@@ -92,6 +110,8 @@ impl Msg {
             Error::Sync(SyncError::IncompatibleProtocol { .. }) => ErrCode::IncompatibleProtocol,
             Error::Sync(SyncError::UpdateApp { .. }) => ErrCode::UpdateApp,
             Error::Sync(SyncError::Protocol(_)) => ErrCode::Protocol,
+            Error::Pairing(PairingError::Expired) => ErrCode::PairingExpired,
+            Error::Pairing(PairingError::InvalidToken) => ErrCode::PairingInvalid,
             _ => ErrCode::Internal,
         };
         Some(Msg::Error {

@@ -23,11 +23,23 @@ npm run tauri build    # release build and installer, in target/release/
 
 The database is created on first launch at `%APPDATA%\app.budgeting.personal\budget.sqlite3`.
 
+## Pairing and Sync
+
+In Settings → Sync, turn on **Allow Sync** on the Device that listens (the PC), then use **Pair new device** and paste the pairing code into **Join another Device** on the other one, within 5 minutes. The first time the app listens, Windows asks whether to allow it on the network: allow it for private networks only. Nothing else in the system's network settings is changed (ticket 16 will add a firewall rule).
+
+To try it with two instances on one PC, start the second with its own data folder and use a different port in its Settings:
+
+```sh
+set BUDGET_DATA_DIR=%TEMP%\budget-second && target\debug\budgeting-app.exe
+```
+
+The pairing code lists the PC's private network addresses (or `127.0.0.1` if it has none), and either works between two instances on one PC. A second instance started with `npm run tauri dev` would clash with the first one's dev server, so use the built app.
+
 ## Test and check
 
 ```sh
-npm run test:rust      # Rust tests: HLC, write path and sync log, Accounts, settings, Backup
-npm test               # UI unit tests (money formatting and parsing, Backup messages)
+npm run test:rust      # Rust tests: HLC, write path and sync log, domain modules, Backup, Sync and Pairing over localhost TCP
+npm test               # UI unit tests (money formatting and parsing, Backup messages, Sync helpers)
 npm run typecheck      # TypeScript
 cargo clippy --workspace --all-targets
 ```

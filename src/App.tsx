@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { api, errorMessage } from "./api";
+import { viewsToRefresh } from "./sync";
 import AccountsPage from "./components/AccountsPage";
 import BudgetsPage from "./components/BudgetsPage";
 import CategoriesPage from "./components/CategoriesPage";
@@ -30,9 +32,24 @@ export default function App() {
   const [view, setView] = useState<View>("home");
   const [error, setError] = useState<string | null>(null);
 
+  // Bumped when a Sync changed what a view shows, so the view refetches.
+  const [refreshed, setRefreshed] = useState<Partial<Record<View, number>>>({});
+
   const loadCurrency = () => api.currencyGet().then(setCurrency, (e) => setError(errorMessage(e)));
   useEffect(() => {
     void loadCurrency();
+  }, []);
+
+  useEffect(() => {
+    const off = listen<{ entities: string[] }>("data://changed", ({ payload }) => {
+      if (payload.entities.includes("setting")) api.currencyGet().then(setCurrency, () => {});
+      setRefreshed((r) => {
+        const next = { ...r };
+        for (const v of viewsToRefresh(payload.entities)) next[v] = (next[v] ?? 0) + 1;
+        return next;
+      });
+    });
+    return () => void off.then((f) => f());
   }, []);
 
   async function chooseCurrency(code: string) {
@@ -68,7 +85,7 @@ export default function App() {
           ))}
         </nav>
       </header>
-      <main className="page">
+      <main className="page" key={`${view}-${refreshed[view] ?? 0}`}>
         {view === "home" && <HomePage currency={currency} />}
         {view === "accounts" && <AccountsPage currency={currency} />}
         {view === "transactions" && <TransactionsPage currency={currency} />}

@@ -1,5 +1,5 @@
 use crate::hlc::ParseHlcError;
-use crate::sync::SyncError;
+use crate::sync::{PairingError, SyncError};
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -30,6 +30,11 @@ pub enum Error {
     NotABackup(String),
     #[error("file error: {0}")]
     Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Pairing(#[from] PairingError),
+    /// A network or encryption failure while talking to another Device.
+    #[error("network error: {0}")]
+    Net(String),
 }
 
 impl Error {

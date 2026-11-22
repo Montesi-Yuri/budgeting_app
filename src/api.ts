@@ -187,8 +187,37 @@ export type BackupSchedule = {
 
 export type AppInfo = { device_id: string; schema_version: number };
 
+/** Per-Device Sync settings and whether the listener runs. */
+export type SyncStatus = { enabled: boolean; port: number; listening: boolean; addrs: string[] };
+
+/** "Pair new device": the text to paste on the other Device. */
+export type PairingInfo = { payload: string; expires_at: number; addrs: string[]; port: number };
+
+/** A paired Device. Times are Unix seconds. */
+export type Peer = {
+  device_id: string;
+  name: string;
+  /** null for a Device that connects to this one. */
+  last_addr: string | null;
+  paired_at: number | null;
+  last_sync_at: number | null;
+};
+
+export type SyncReport = {
+  peer_device_id: string;
+  sent: number;
+  received: number;
+  /** Synced entities (table names) the received changes touched. */
+  entities: string[];
+  converged: boolean;
+};
+
+export type SyncProgress = { peer_device_id: string; phase: "exchanging" | "finished"; sent: number; received: number };
+
+export type JoinResult = { peer: Peer; report: SyncReport };
+
 /** What a failed command rejects with. */
-export type CommandError = { kind: "invalid" | "not_found" | "internal"; message: string };
+export type CommandError = { kind: "invalid" | "not_found" | "internal" | "sync"; message: string };
 
 export function errorMessage(err: unknown): string {
   if (err && typeof err === "object" && "message" in err) return String((err as CommandError).message);
@@ -241,6 +270,15 @@ export const api = {
   backupScheduleGet: () => invoke<BackupSchedule>("backup_schedule_get"),
   backupScheduleSet: (folder: string | null, passphrase: string | null) =>
     invoke<BackupSchedule>("backup_schedule_set", { folder, passphrase }),
+  syncStatus: () => invoke<SyncStatus>("sync_status"),
+  syncServerSet: (enabled: boolean, port: number) => invoke<SyncStatus>("sync_server_set", { enabled, port }),
+  pairingStart: () => invoke<PairingInfo>("pairing_start"),
+  pairingCancel: () => invoke<void>("pairing_cancel"),
+  /** Pair with the Device whose payload was pasted, then run the first Sync. */
+  pairingJoin: (payload: string) => invoke<JoinResult>("pairing_join", { payload }),
+  peersList: () => invoke<Peer[]>("peers_list"),
+  peerRemove: (deviceId: string) => invoke<void>("peer_remove", { deviceId }),
+  syncNow: (deviceId: string) => invoke<SyncReport>("sync_now", { deviceId }),
 };
 
 /** The Weekly Spendable for today's Week (cut at the Period boundary). */

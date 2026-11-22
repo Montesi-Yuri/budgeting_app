@@ -3,7 +3,7 @@
 //! Commands are thin: they lock the [`Store`] and call `budget_core`. All
 //! data rules, and the single write path, live in `budget_core`.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use budget_core::accounts::{self, Account, AccountWithBalance, NewAccount};
 use budget_core::categories::{self, Category, NewCategory};
@@ -15,7 +15,8 @@ use budget_core::{settings, Store};
 use serde::Serialize;
 use tauri::State;
 
-pub type AppStore = Mutex<Store>;
+/// Shared with the Sync node, which locks it once per message.
+pub type AppStore = Arc<Mutex<Store>>;
 
 /// The error the UI receives. `kind` lets it tell the user's mistakes
 /// ("invalid") apart from failures.
@@ -32,6 +33,9 @@ impl From<budget_core::Error> for CommandError {
             | budget_core::Error::WrongPassphrase
             | budget_core::Error::NotABackup(_) => "invalid",
             budget_core::Error::NotFound { .. } => "not_found",
+            budget_core::Error::Pairing(_)
+            | budget_core::Error::Sync(_)
+            | budget_core::Error::Net(_) => "sync",
             _ => "internal",
         };
         CommandError {
