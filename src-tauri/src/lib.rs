@@ -104,6 +104,12 @@ pub fn run() {
             commands::transfer_confirm,
             commands::transfer_reject,
             commands::savings_progress_get,
+            commands::fulfilments_list,
+            commands::fulfilment_link,
+            commands::fulfilment_confirm,
+            commands::fulfilment_unlink,
+            commands::occurrence_skip,
+            commands::occurrence_arrives_later,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the app");

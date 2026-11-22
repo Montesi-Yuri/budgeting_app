@@ -7,15 +7,18 @@
 //! confirmed. A `rejected` row is kept, so the same pair is never suggested
 //! again.
 //!
-//! Ticket 06 adds the Transfer items. Tickets 07 (Manual Transaction
-//! matches) and 09 (Planned item fulfilment) add their own [`ReviewItem`]
-//! variants and fill them in [`list`].
+//! Ticket 06 adds the Transfer items, ticket 09 the Planned item ones
+//! (fulfilment Suggestions, and occurrences still expected after their
+//! Period). Ticket 07 (Manual Transaction matches) adds its own
+//! [`ReviewItem`] variants and fills them in [`list`].
 
 use serde::{Deserialize, Serialize};
 
 use crate::date::Date;
 use crate::error::{Error, Result};
+use crate::fulfilment::{self, Fulfilment};
 use crate::period::Period;
+use crate::planned::{self, Occurrence};
 use crate::store::Store;
 use crate::transfers::{self, TransferView};
 
@@ -58,12 +61,23 @@ pub enum ReviewItem {
     /// A Transfer with only one side whose Period has ended: "other side
     /// not imported yet". It still counts as a Transfer; nothing to decide.
     TransferMissingSide { transfer: TransferView },
+    /// An imported Transaction the app thinks is the actual of a Planned
+    /// item's occurrence: confirm or reject.
+    FulfilmentSuggestion { fulfilment: Fulfilment },
+    /// An occurrence whose Period has ended and that is still expected:
+    /// "skipped or arrives later?".
+    StillExpected { occurrence: Occurrence },
 }
 
 impl ReviewItem {
     /// Whether the user has to decide something (counted in the badge).
     pub fn is_pending(&self) -> bool {
-        matches!(self, ReviewItem::TransferSuggestion { .. })
+        matches!(
+            self,
+            ReviewItem::TransferSuggestion { .. }
+                | ReviewItem::FulfilmentSuggestion { .. }
+                | ReviewItem::StillExpected { .. }
+        )
     }
 }
 
@@ -91,6 +105,16 @@ pub fn list(store: &Store, today: Date) -> Result<ReviewList> {
         {
             missing.push(ReviewItem::TransferMissingSide { transfer });
         }
+    }
+    for fulfilment in fulfilment::list(store)? {
+        if fulfilment.status == LinkStatus::Suggested {
+            pending.push(ReviewItem::FulfilmentSuggestion { fulfilment });
+        }
+    }
+    let before_this_period = this_period.first_day().add_days(-1);
+    let long_ago = Date::new(1900, 1, 1).expect("a real date");
+    for occurrence in planned::expected_occurrences(store, long_ago, before_this_period)? {
+        pending.push(ReviewItem::StillExpected { occurrence });
     }
     let pending_count = pending.len();
     pending.extend(missing);

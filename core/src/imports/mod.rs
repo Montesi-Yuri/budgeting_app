@@ -24,7 +24,7 @@ use crate::error::{Error, Result};
 use crate::hlc::Hlc;
 use crate::store::{Store, SyncedRow};
 use crate::transactions::{Transaction, TxnSource};
-use crate::{ids, rules, settings, transfers};
+use crate::{fulfilment, ids, rules, settings, transfers};
 
 /// The text encoding of a bank's CSV files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -572,6 +572,7 @@ pub fn import_file(
             }
         }
         transfers::after_import(w, &new_txns, &marked_as_transfer)?;
+        fulfilment::after_import(w, &new_txns)?;
         let batch = ImportBatch {
             id: batch_id.clone(),
             account_id: account_id.to_owned(),

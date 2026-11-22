@@ -56,12 +56,15 @@ describe("viewsToRefresh: the views showing what a Sync changed", () => {
   });
   it("refreshes Budgets after Budgets changed and Import after Import profiles changed", () => {
     expect(viewsToRefresh(["budget"])).toEqual(["budgets"]);
-    expect(viewsToRefresh(["planned_item"])).toEqual(["planned"]);
     expect(viewsToRefresh(["rule"])).toEqual(["rules"]);
     expect(viewsToRefresh(["import_profile", "import_batch"])).toEqual(["import"]);
   });
   it("refreshes the review list, the Uncategorised list and Budgets after Transfers changed", () => {
     expect(viewsToRefresh(["transfer"])).toEqual(["review", "uncategorised", "budgets"]);
+  });
+  it("refreshes the review list after Planned item occurrences or Planned items changed", () => {
+    expect(viewsToRefresh(["planned_occurrence"])).toEqual(["review"]);
+    expect(viewsToRefresh(["planned_item"])).toEqual(["review", "planned"]);
   });
   it("refreshes nothing when nothing changed", () => {
     expect(viewsToRefresh([])).toEqual([]);
