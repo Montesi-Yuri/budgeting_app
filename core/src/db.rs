@@ -16,6 +16,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0005_imports.sql"),
     include_str!("../migrations/0007_budgets.sql"),
     include_str!("../migrations/0009_planned_items.sql"),
+    include_str!("../migrations/0010_rules.sql"),
 ];
 
 /// The schema version this build of the app creates and understands.

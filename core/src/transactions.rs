@@ -300,6 +300,11 @@ pub fn list_uncategorised(store: &Store) -> Result<Vec<TransactionView>> {
     list_where(store.conn(), "c.id IS NULL", [])
 }
 
+/// Every live Transaction on any live Account, newest first.
+pub(crate) fn list_live(conn: &Connection) -> Result<Vec<TransactionView>> {
+    list_where(conn, "1 = 1", [])
+}
+
 const VIEW_SELECT: &str = "
     SELECT t.id, t.account_id, t.date, t.amount_minor, t.description, t.note, t.source,
            t.import_id, t.fingerprint, t.balance_after_minor, t.category_id, t.category_source,

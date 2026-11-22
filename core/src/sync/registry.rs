@@ -14,6 +14,7 @@ use crate::error::{Error, Result};
 use crate::hlc::Hlc;
 use crate::imports::{ImportBatch, ImportProfile};
 use crate::planned::PlannedItem;
+use crate::rules::Rule;
 use crate::settings::Setting;
 use crate::store::SyncedRow;
 use crate::transactions::Transaction;
@@ -28,6 +29,7 @@ pub const SYNCED_ENTITIES: &[SyncedEntity] = &[
     entity::<ImportProfile>(),
     entity::<ImportBatch>(),
     entity::<PlannedItem>(),
+    entity::<Rule>(),
 ];
 
 /// One registered synced entity: its table and how to save a row decoded
