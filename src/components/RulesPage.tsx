@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AccountWithBalance, api, Category, errorMessage, NewRule, Rule, RuleDirection, RuleView, TransactionView } from "../api";
+import { AccountWithBalance, api, Category, errorMessage, NewRule, Rule, RuleAction, RuleDirection, RuleView, TransactionView } from "../api";
 import { categoryChoices } from "../categories";
 import { ruleSummary } from "../rules";
 import { TransactionSummary } from "./TransactionsPage";
@@ -73,13 +73,13 @@ export default function RulesPage({ currency }: { currency: string }) {
       <div className="heading">
         <h1>Rules</h1>
         {editing === null && (
-          <button className="primary" onClick={() => setEditing({ rule: null })} disabled={noCategories}>
+          <button className="primary" onClick={() => setEditing({ rule: null })}>
             Add Rule
           </button>
         )}
       </div>
       <p className="muted small">
-        Rules give imported Transactions a Category automatically. They are tried from the top, and the first matching
+        Rules give imported Transactions a Category automatically, or mark them as part of a Transfer. They are tried from the top, and the first matching
         Rule wins. A Category you set by hand is never changed by a Rule.
       </p>
       {error && <p className="error">{error}</p>}
@@ -122,7 +122,7 @@ export default function RulesPage({ currency }: { currency: string }) {
       {rules && rules.length === 0 && !editing && (
         <p className="muted">
           {noCategories
-            ? "Add a Category first, then you can make Rules that assign it."
+            ? "No Rules yet. Add a Category to make Rules that assign it, or add a Rule that marks Transfers."
             : 'No Rules yet. Add one, such as "description contains ESSELUNGA → Groceries".'}
         </p>
       )}
@@ -173,6 +173,7 @@ function RuleForm({ rule, categories, accounts, onSubmit, onCancel }: FormProps)
   const [accountId, setAccountId] = useState(rule?.account_id ?? "");
   const [direction, setDirection] = useState<RuleDirection | "">(rule?.direction ?? "");
   const [categoryId, setCategoryId] = useState(known && rule.category_id ? rule.category_id : "");
+  const [action, setAction] = useState<RuleAction>(rule?.action ?? "categorise");
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -180,7 +181,8 @@ function RuleForm({ rule, categories, accounts, onSubmit, onCancel }: FormProps)
       match_text: matchText,
       account_id: accountId || null,
       direction: direction || null,
-      category_id: categoryId,
+      action,
+      category_id: action === "categorise" ? categoryId || null : null,
     });
   }
 
@@ -212,6 +214,14 @@ function RuleForm({ rule, categories, accounts, onSubmit, onCancel }: FormProps)
           </select>
         </label>
         <label className="field">
+          <span>Then</span>
+          <select value={action} onChange={(e) => setAction(e.target.value as RuleAction)}>
+            <option value="categorise">Assign a Category</option>
+            <option value="transfer">Mark as Transfer</option>
+          </select>
+        </label>
+        {action === "categorise" && (
+        <label className="field">
           <span>Category</span>
           <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
             <option value="" disabled>
@@ -228,7 +238,14 @@ function RuleForm({ rule, categories, accounts, onSubmit, onCancel }: FormProps)
             ))}
           </select>
         </label>
+        )}
       </div>
+      {action === "transfer" && (
+        <p className="muted small">
+          Matching Transactions become a confirmed Transfer when they are imported, with only one side until the other
+          Account is imported. They are never counted as Income or Expenses.
+        </p>
+      )}
       <div className="actions">
         <button type="submit" className="primary">
           {rule ? "Save" : "Add Rule"}

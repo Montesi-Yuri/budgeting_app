@@ -98,6 +98,12 @@ pub fn run() {
             commands::planned_item_end,
             commands::planned_item_delete,
             commands::planned_period_get,
+            commands::review_list,
+            commands::transfers_list,
+            commands::transfer_link,
+            commands::transfer_confirm,
+            commands::transfer_reject,
+            commands::savings_progress_get,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the app");

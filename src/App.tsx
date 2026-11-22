@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { api, errorMessage } from "./api";
+import { localToday } from "./periods";
+import { badgeText } from "./review";
 import { viewsToRefresh } from "./sync";
 import AccountsPage from "./components/AccountsPage";
 import BudgetsPage from "./components/BudgetsPage";
@@ -12,15 +14,17 @@ import PairWithPc from "./components/PairWithPc";
 import PhoneHome from "./components/PhoneHome";
 import RestoreBackup from "./components/RestoreBackup";
 import PlannedItemsPage from "./components/PlannedItemsPage";
+import ReviewPage from "./components/ReviewPage";
 import RulesPage from "./components/RulesPage";
 import SettingsPage from "./components/SettingsPage";
 import TransactionsPage from "./components/TransactionsPage";
 import UncategorisedPage from "./components/UncategorisedPage";
 
-type View = "home" | "accounts" | "transactions" | "uncategorised" | "categories" | "settings" | "budgets" | "import" | "planned" | "rules";
+type View = "home" | "review" | "accounts" | "transactions" | "uncategorised" | "categories" | "settings" | "budgets" | "import" | "planned" | "rules";
 
 const VIEWS: { view: View; label: string }[] = [
   { view: "home", label: "Home" },
+  { view: "review", label: "To review" },
   { view: "accounts", label: "Accounts" },
   { view: "transactions", label: "Transactions" },
   { view: "uncategorised", label: "Uncategorised" },
@@ -46,6 +50,14 @@ export default function App() {
   // Bumped when a Sync changed what a view shows, so the view refetches.
   const [refreshed, setRefreshed] = useState<Partial<Record<View, number>>>({});
 
+  // The "to review" badge: refreshed on every navigation, after a Sync and
+  // after a decision on the review page.
+  const [pending, setPending] = useState(0);
+  const loadPending = () => api.reviewList(localToday()).then((r) => setPending(r.pending_count), () => {});
+  useEffect(() => {
+    if (currency) void loadPending();
+  }, [currency, view]);
+
   const loadCurrency = () => api.currencyGet().then(setCurrency, (e) => setError(errorMessage(e)));
   useEffect(() => {
     void loadCurrency();
@@ -55,6 +67,7 @@ export default function App() {
   useEffect(() => {
     const off = listen<{ entities: string[] }>("data://changed", ({ payload }) => {
       if (payload.entities.includes("setting")) api.currencyGet().then(setCurrency, () => {});
+      void loadPending();
       setRefreshed((r) => {
         const next = { ...r };
         for (const v of viewsToRefresh(payload.entities)) next[v] = (next[v] ?? 0) + 1;
@@ -109,12 +122,18 @@ export default function App() {
           {VIEWS.filter((v) => !mobile || PHONE_VIEWS.includes(v.view)).map((v) => (
             <button key={v.view} className={view === v.view ? "tab active" : "tab"} onClick={() => setView(v.view)}>
               {v.label}
+              {v.view === "review" && badgeText(pending) && (
+                <span className="badge" aria-label={`${pending} to review`}>
+                  {badgeText(pending)}
+                </span>
+              )}
             </button>
           ))}
         </nav>
       </header>
       <main className="page" key={`${view}-${refreshed[view] ?? 0}`}>
         {view === "home" && (mobile ? <PhoneHome currency={currency} /> : <HomePage currency={currency} />)}
+        {view === "review" && <ReviewPage currency={currency} onChanged={() => void loadPending()} />}
         {view === "accounts" && <AccountsPage currency={currency} />}
         {view === "transactions" && <TransactionsPage currency={currency} />}
         {view === "uncategorised" && <UncategorisedPage currency={currency} />}

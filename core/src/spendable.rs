@@ -18,8 +18,9 @@
 //! Set-aside: its own occurrences are left out, so the Period it falls due in
 //! isn't hit twice (see [`crate::planned`]).
 //!
-//! Later tickets extend this: Transfers are left out of the totals (06),
-//! Manual Transactions hidden by a match too (07); fulfilled occurrences stop
+//! Transfers are left out of the totals ([`crate::transfers`]). Later
+//! tickets extend this: Manual Transactions hidden by a match are left out
+//! too (07); fulfilled occurrences stop
 //! being expected, and Transactions fulfilling an item spread as Set-asides
 //! are left out of the totals (09). A new term is a new field on
 //! [`PeriodSpendable`], filled in [`for_period`] and added in

@@ -140,8 +140,11 @@ CREATE INDEX txn_account_date ON txn(account_id, date) WHERE deleted = 0;
 
 -- A Transfer links an outgoing and an incoming txn. One side may be missing for now.
 CREATE TABLE transfer (
-  id            TEXT PRIMARY KEY,          -- from a match: UUIDv5(out_txn_id | in_txn_id), so both
-                                           -- Devices suggesting the same pair create one row
+  id            TEXT PRIMARY KEY,          -- with both sides: UUIDv5(out_txn_id | in_txn_id), so both
+                                           -- Devices suggesting the same pair create one row;
+                                           -- with one side so far: UUIDv5 of that txn id. When the
+                                           -- other side arrives, the one-sided row is deleted and the
+                                           -- pair row takes over its status and origin.
   out_txn_id    TEXT REFERENCES txn(id),   -- NULL until that Account is imported
   in_txn_id     TEXT REFERENCES txn(id),   -- NULL until that Account is imported
   status        TEXT NOT NULL,             -- 'suggested' | 'confirmed' | 'rejected'

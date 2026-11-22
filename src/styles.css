@@ -139,3 +139,5 @@ input.big-input { font-size: 1.6rem; padding: 10px 12px; }
 /* Touch-sized controls in the phone build. */
 .app.phone input, .app.phone select, .app.phone button, .page.phone input, .page.phone select, .page.phone button { min-height: 44px; }
 .app.phone .topbar { position: sticky; top: 0; z-index: 1; }
+.tab .badge { margin-left: 6px; }
+.card progress { width: 100%; }

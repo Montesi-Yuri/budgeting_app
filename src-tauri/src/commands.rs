@@ -408,3 +408,61 @@ pub fn rule_recategorise(
 ) -> CmdResult<usize> {
     budget_core::rules::recategorise(&mut *lock(&store)?, &id, &transactions).map_err(Into::into)
 }
+
+/// The review list as of `today` (`YYYY-MM-DD`, the UI's local date), with
+/// the count for the "to review" badge.
+#[tauri::command]
+pub fn review_list(
+    store: State<'_, AppStore>,
+    today: String,
+) -> CmdResult<budget_core::review::ReviewList> {
+    let today = today.parse()?;
+    budget_core::review::list(&*lock(&store)?, today).map_err(Into::into)
+}
+
+/// Every Transfer that isn't rejected, oldest first.
+#[tauri::command]
+pub fn transfers_list(
+    store: State<'_, AppStore>,
+) -> CmdResult<Vec<budget_core::transfers::TransferView>> {
+    budget_core::transfers::list(&*lock(&store)?).map_err(Into::into)
+}
+
+/// Link two Transactions as a Transfer by hand.
+#[tauri::command]
+pub fn transfer_link(
+    store: State<'_, AppStore>,
+    a: String,
+    b: String,
+) -> CmdResult<budget_core::transfers::Transfer> {
+    budget_core::transfers::link(&mut *lock(&store)?, &a, &b).map_err(Into::into)
+}
+
+/// Confirm a suggested Transfer.
+#[tauri::command]
+pub fn transfer_confirm(
+    store: State<'_, AppStore>,
+    id: String,
+) -> CmdResult<budget_core::transfers::Transfer> {
+    budget_core::transfers::confirm(&mut *lock(&store)?, &id).map_err(Into::into)
+}
+
+/// Reject a suggested Transfer, or unlink a confirmed one.
+#[tauri::command]
+pub fn transfer_reject(
+    store: State<'_, AppStore>,
+    id: String,
+) -> CmdResult<budget_core::transfers::Transfer> {
+    budget_core::transfers::reject(&mut *lock(&store)?, &id).map_err(Into::into)
+}
+
+/// The Savings target next to what Transfers moved into savings Accounts
+/// in `period` (`YYYY-MM`).
+#[tauri::command]
+pub fn savings_progress_get(
+    store: State<'_, AppStore>,
+    period: String,
+) -> CmdResult<budget_core::transfers::SavingsProgress> {
+    let period = period.parse()?;
+    budget_core::transfers::savings_progress(&*lock(&store)?, period).map_err(Into::into)
+}

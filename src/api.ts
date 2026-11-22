@@ -107,6 +107,9 @@ export type BudgetProgress = {
 
 export type RuleDirection = "in" | "out";
 
+/** categorise: assign the Category. transfer: mark as part of a Transfer (no Category). */
+export type RuleAction = "categorise" | "transfer";
+
 /** What the user enters for a Rule. match_text is looked for in the description, ignoring case. */
 export type NewRule = {
   match_text: string;
@@ -114,20 +117,46 @@ export type NewRule = {
   account_id: string | null;
   /** null = money in or out. */
   direction: RuleDirection | null;
-  category_id: string;
+  action: RuleAction;
+  /** Required to categorise; null for a Transfer Rule. */
+  category_id: string | null;
 };
 
 export type RuleEdit = NewRule & { id: string };
 
-export type Rule = Omit<RuleEdit, "category_id"> & {
+export type Rule = RuleEdit & {
   /** First match wins, lowest first. */
   position: number;
-  action: "categorise";
-  category_id: string | null;
 };
 
 /** broken: its Category was deleted; it is not applied until another is picked. */
 export type RuleView = Rule & { category_name: string | null; account_name: string | null; broken: boolean };
+
+/** Where a Suggestion stands. "suggested" counts as confirmed until the user decides. */
+export type LinkStatus = "suggested" | "confirmed" | "rejected";
+
+/** A Transfer between two of the user's Accounts. A side is null until that Account is imported. */
+export type Transfer = {
+  id: string;
+  out_txn_id: string | null;
+  in_txn_id: string | null;
+  status: LinkStatus;
+  origin: "rule" | "match" | "user";
+};
+
+/** A Transfer with its live Transactions (null = not imported yet, or deleted). */
+export type TransferView = Transfer & { out_txn: TransactionView | null; in_txn: TransactionView | null };
+
+export type ReviewItem =
+  | { kind: "transfer_suggestion"; transfer: TransferView }
+  /** A Transfer with one side whose Period has ended: "other side not imported yet". */
+  | { kind: "transfer_missing_side"; transfer: TransferView };
+
+/** pending_count: the items waiting for a decision (the badge). */
+export type ReviewList = { items: ReviewItem[]; pending_count: number };
+
+/** The Savings target next to what Transfers moved into savings Accounts in a Period. */
+export type SavingsProgress = { period: string; target_minor: number; transferred_minor: number };
 
 export type ImportEncoding = "utf-8" | "windows-1252";
 export type AmountMode = "signed" | "split";
@@ -307,6 +336,17 @@ export const api = {
   /** Apply the Rule to the confirmed Transactions. Returns how many changed. */
   ruleRecategorise: (id: string, transactionIds: string[]) =>
     invoke<number>("rule_recategorise", { id, transactions: transactionIds }),
+  /** The review list as of `today` (YYYY-MM-DD). */
+  reviewList: (today: string) => invoke<ReviewList>("review_list", { today }),
+  /** Every Transfer that isn't rejected, oldest first. */
+  transfersList: () => invoke<TransferView[]>("transfers_list"),
+  /** Link two Transactions (one out, one in, different Accounts) as a Transfer by hand. */
+  transferLink: (a: string, b: string) => invoke<Transfer>("transfer_link", { a, b }),
+  transferConfirm: (id: string) => invoke<Transfer>("transfer_confirm", { id }),
+  /** Reject a Suggestion, or unlink a Transfer. The pair is never suggested again. */
+  transferReject: (id: string) => invoke<Transfer>("transfer_reject", { id }),
+  /** Savings progress for a Period (YYYY-MM). */
+  savingsProgressGet: (period: string) => invoke<SavingsProgress>("savings_progress_get", { period }),
   backupExport: (path: string, passphrase: string) => invoke<void>("backup_export", { path, passphrase }),
   backupRestore: (path: string, passphrase: string) =>
     invoke<RestoreReport>("backup_restore", { path, passphrase }),

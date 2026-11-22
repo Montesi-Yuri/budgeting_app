@@ -1,7 +1,8 @@
 //! Categorisation Rules: conditions applied automatically to Transactions
 //! when they are imported (CONTEXT.md "Rule"). A Rule matches description
 //! text (case-insensitive "contains"), optionally limited to one Account
-//! and/or one direction, and assigns a Category. Rules are kept in an order
+//! and/or one direction, and either assigns a Category or marks the
+//! Transaction as part of a Transfer ([`RuleAction`]). Rules are kept in an order
 //! the user can change; the first matching Rule wins. A Category set by the
 //! user by hand is never changed by a Rule.
 //!
@@ -49,24 +50,32 @@ impl Direction {
     }
 }
 
-/// What a matching Rule does. Ticket 06 adds "mark as Transfer".
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// What a matching Rule does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RuleAction {
     /// Assign the Rule's Category.
+    #[default]
     Categorise,
+    /// Mark the Transaction as part of a Transfer (confirmed straight away,
+    /// with one side only if the other side is missing; see
+    /// [`crate::transfers`]). It has no Category and leaves the
+    /// Transaction's Category alone.
+    Transfer,
 }
 
 impl RuleAction {
     pub fn as_str(self) -> &'static str {
         match self {
             RuleAction::Categorise => "categorise",
+            RuleAction::Transfer => "transfer",
         }
     }
 
     fn parse(s: &str) -> Result<Self> {
         match s {
             "categorise" => Ok(RuleAction::Categorise),
+            "transfer" => Ok(RuleAction::Transfer),
             other => Err(Error::Codec(format!("unknown Rule action {other:?}"))),
         }
     }
@@ -128,7 +137,11 @@ pub struct NewRule {
     pub match_text: String,
     pub account_id: Option<String>,
     pub direction: Option<Direction>,
-    pub category_id: String,
+    /// Categorise (the default) or mark as Transfer.
+    #[serde(default)]
+    pub action: RuleAction,
+    /// Required to categorise; ignored for a Transfer Rule.
+    pub category_id: Option<String>,
 }
 
 /// Create a Rule, placed after the others (so it is tried last).
@@ -147,8 +160,8 @@ pub fn create(store: &mut Store, new: NewRule) -> Result<Rule> {
                 match_text: new.match_text,
                 account_id: new.account_id,
                 direction: new.direction,
-                action: RuleAction::Categorise,
-                category_id: Some(new.category_id),
+                action: new.action,
+                category_id: new.category_id,
             },
         )?;
         w.upsert(&rule)?;
@@ -163,7 +176,9 @@ pub struct RuleEdit {
     pub match_text: String,
     pub account_id: Option<String>,
     pub direction: Option<Direction>,
-    pub category_id: String,
+    #[serde(default)]
+    pub action: RuleAction,
+    pub category_id: Option<String>,
 }
 
 /// Save the user's edit of a Rule. Picking a live Category repairs a
@@ -178,8 +193,8 @@ pub fn update(store: &mut Store, edit: RuleEdit) -> Result<Rule> {
                 match_text: edit.match_text,
                 account_id: edit.account_id,
                 direction: edit.direction,
-                action: RuleAction::Categorise,
-                category_id: Some(edit.category_id),
+                action: edit.action,
+                category_id: edit.category_id,
                 ..current
             },
         )?;
@@ -245,9 +260,12 @@ fn validated(conn: &Connection, mut rule: Rule) -> Result<Rule> {
             ));
         }
     }
-    match &rule.category_id {
-        Some(category_id) if is_live(conn, "category", category_id)? => {}
-        _ => return Err(Error::invalid("Choose an existing Category.")),
+    match rule.action {
+        RuleAction::Categorise => match &rule.category_id {
+            Some(category_id) if is_live(conn, "category", category_id)? => {}
+            _ => return Err(Error::invalid("Choose an existing Category.")),
+        },
+        RuleAction::Transfer => rule.category_id = None,
     }
     Ok(rule)
 }
@@ -368,6 +386,7 @@ pub fn applicable(conn: &Connection) -> Result<Vec<Rule>> {
                 .category_id
                 .as_ref()
                 .is_some_and(|c| live_categories.contains(c)),
+            RuleAction::Transfer => true,
         })
         .collect())
 }
@@ -390,6 +409,7 @@ pub fn categorise<'a>(rules: &'a [Rule], txn: &mut Transaction) -> Option<&'a Ru
             txn.category_id = rule.category_id.clone();
             txn.category_source = Some(CategorySource::Rule);
         }
+        RuleAction::Transfer => {} // the caller makes the Transfer
     }
     Some(rule)
 }
@@ -430,6 +450,9 @@ fn would_recategorise(conn: &Connection, rule_id: &str) -> Result<Vec<Transactio
     let Some(rule) = rules.iter().find(|r| r.id == rule_id) else {
         return Ok(Vec::new()); // broken
     };
+    if rule.action != RuleAction::Categorise {
+        return Ok(Vec::new()); // marks new Transactions only
+    }
     Ok(transactions::list_live(conn)?
         .into_iter()
         .filter(|view| {

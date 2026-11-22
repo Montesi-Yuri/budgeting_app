@@ -37,3 +37,11 @@ describe("ruleSummary", () => {
     );
   });
 });
+
+describe("ruleSummary for a Transfer Rule", () => {
+  it("says it marks the Transaction as a Transfer, and is never shown as a deleted Category", () => {
+    expect(ruleSummary(rule({ action: "transfer", category_id: null, category_name: null }))).toBe(
+      'Description contains "coop" → Transfer',
+    );
+  });
+});
