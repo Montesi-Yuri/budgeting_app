@@ -63,6 +63,9 @@ describe("viewsToRefresh: the views showing what a Sync changed", () => {
   it("refreshes the review list, the Uncategorised list and Budgets after Transfers changed", () => {
     expect(viewsToRefresh(["transfer"])).toEqual(["review", "uncategorised", "budgets"]);
   });
+  it("refreshes the review list and every view with numbers after a match with a Manual Transaction changed", () => {
+    expect(viewsToRefresh(["manual_match"])).toEqual(["review", "accounts", "transactions", "uncategorised", "budgets"]);
+  });
   it("refreshes nothing when nothing changed", () => {
     expect(viewsToRefresh([])).toEqual([]);
   });

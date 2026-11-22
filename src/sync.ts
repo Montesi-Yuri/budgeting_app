@@ -16,6 +16,8 @@ const VIEWS_BY_ENTITY: Record<string, DataView[]> = {
   txn: ["review", "accounts", "transactions", "uncategorised", "budgets"],
   // Transactions in a Transfer leave the Uncategorised list and Budgets.
   transfer: ["review", "uncategorised", "budgets"],
+  // A match hides its Manual Transaction from balances, Uncategorised and Budgets.
+  manual_match: ["review", "accounts", "transactions", "uncategorised", "budgets"],
   budget: ["budgets"],
   planned_item: ["planned"],
   rule: ["rules"],

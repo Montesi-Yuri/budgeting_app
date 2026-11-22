@@ -466,3 +466,22 @@ pub fn savings_progress_get(
     let period = period.parse()?;
     budget_core::transfers::savings_progress(&*lock(&store)?, period).map_err(Into::into)
 }
+
+/// Confirm a suggested match: the Manual Transaction merges into the
+/// imported one.
+#[tauri::command]
+pub fn manual_match_confirm(
+    store: State<'_, AppStore>,
+    id: String,
+) -> CmdResult<budget_core::manual_matches::ManualMatch> {
+    budget_core::manual_matches::confirm(&mut *lock(&store)?, &id).map_err(Into::into)
+}
+
+/// Reject a suggested match: both Transactions stay.
+#[tauri::command]
+pub fn manual_match_reject(
+    store: State<'_, AppStore>,
+    id: String,
+) -> CmdResult<budget_core::manual_matches::ManualMatch> {
+    budget_core::manual_matches::reject(&mut *lock(&store)?, &id).map_err(Into::into)
+}

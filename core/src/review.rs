@@ -7,14 +7,15 @@
 //! confirmed. A `rejected` row is kept, so the same pair is never suggested
 //! again.
 //!
-//! Ticket 06 adds the Transfer items. Tickets 07 (Manual Transaction
-//! matches) and 09 (Planned item fulfilment) add their own [`ReviewItem`]
-//! variants and fill them in [`list`].
+//! Ticket 06 adds the Transfer items, ticket 07 the Manual Transaction
+//! matches ([`crate::manual_matches`]). Ticket 09 (Planned item fulfilment)
+//! adds its own [`ReviewItem`] variant and fills it in [`list`].
 
 use serde::{Deserialize, Serialize};
 
 use crate::date::Date;
 use crate::error::{Error, Result};
+use crate::manual_matches::{self, ManualMatchView};
 use crate::period::Period;
 use crate::store::Store;
 use crate::transfers::{self, TransferView};
@@ -58,12 +59,18 @@ pub enum ReviewItem {
     /// A Transfer with only one side whose Period has ended: "other side
     /// not imported yet". It still counts as a Transfer; nothing to decide.
     TransferMissingSide { transfer: TransferView },
+    /// An imported Transaction that looks like a Manual Transaction the
+    /// user entered by hand: confirm (merge them) or reject.
+    ManualMatchSuggestion { manual_match: ManualMatchView },
 }
 
 impl ReviewItem {
     /// Whether the user has to decide something (counted in the badge).
     pub fn is_pending(&self) -> bool {
-        matches!(self, ReviewItem::TransferSuggestion { .. })
+        matches!(
+            self,
+            ReviewItem::TransferSuggestion { .. } | ReviewItem::ManualMatchSuggestion { .. }
+        )
     }
 }
 
@@ -91,6 +98,9 @@ pub fn list(store: &Store, today: Date) -> Result<ReviewList> {
         {
             missing.push(ReviewItem::TransferMissingSide { transfer });
         }
+    }
+    for manual_match in manual_matches::suggestions(store)? {
+        pending.push(ReviewItem::ManualMatchSuggestion { manual_match });
     }
     let pending_count = pending.len();
     pending.extend(missing);

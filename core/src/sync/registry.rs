@@ -13,6 +13,7 @@ use crate::categories::Category;
 use crate::error::{Error, Result};
 use crate::hlc::Hlc;
 use crate::imports::{ImportBatch, ImportProfile};
+use crate::manual_matches::ManualMatch;
 use crate::planned::PlannedItem;
 use crate::rules::Rule;
 use crate::settings::Setting;
@@ -32,6 +33,7 @@ pub const SYNCED_ENTITIES: &[SyncedEntity] = &[
     entity::<PlannedItem>(),
     entity::<Rule>(),
     entity::<Transfer>(),
+    entity::<ManualMatch>(),
 ];
 
 /// One registered synced entity: its table and how to save a row decoded

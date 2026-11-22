@@ -24,7 +24,7 @@ use crate::error::{Error, Result};
 use crate::hlc::Hlc;
 use crate::store::{Store, SyncedRow};
 use crate::transactions::{Transaction, TxnSource};
-use crate::{ids, rules, settings, transfers};
+use crate::{ids, manual_matches, rules, settings, transfers};
 
 /// The text encoding of a bank's CSV files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -572,6 +572,7 @@ pub fn import_file(
             }
         }
         transfers::after_import(w, &new_txns, &marked_as_transfer)?;
+        manual_matches::after_import(w, &new_txns)?;
         let batch = ImportBatch {
             id: batch_id.clone(),
             account_id: account_id.to_owned(),
@@ -630,8 +631,12 @@ fn first_balance_mismatch(
             continue;
         }
         let after_opening: i64 = conn.query_row(
-            "SELECT COALESCE(SUM(amount_minor), 0) FROM txn
-             WHERE account_id = ?1 AND deleted = 0 AND date > ?2 AND date <= ?3",
+            &format!(
+                "SELECT COALESCE(SUM(amount_minor), 0) FROM txn
+                 WHERE account_id = ?1 AND deleted = 0 AND date > ?2 AND date <= ?3
+                   AND id NOT IN ({})",
+                manual_matches::HIDDEN_MANUAL_SQL
+            ),
             params![account_id, opening_date, date],
             |r| r.get(0),
         )?;

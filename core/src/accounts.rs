@@ -178,14 +178,18 @@ pub fn list(store: &Store) -> Result<Vec<AccountWithBalance>> {
 }
 
 /// The Opening balance plus every live Transaction dated after the opening
-/// date (sync-design §1.7).
+/// date, leaving out Manual Transactions hidden by a match (sync-design §1.7).
 fn balance_minor(conn: &Connection, account: &Account) -> Result<i64> {
-    let after_opening: i64 = conn.query_row(
+    let sql = format!(
         "SELECT COALESCE(SUM(amount_minor), 0) FROM txn
-         WHERE account_id = ?1 AND deleted = 0 AND date > ?2",
-        params![account.id, account.opening_date],
-        |r| r.get(0),
-    )?;
+         WHERE account_id = ?1 AND deleted = 0 AND date > ?2
+           AND id NOT IN ({})",
+        crate::manual_matches::HIDDEN_MANUAL_SQL
+    );
+    let after_opening: i64 =
+        conn.query_row(&sql, params![account.id, account.opening_date], |r| {
+            r.get(0)
+        })?;
     Ok(account.opening_minor + after_opening)
 }
 

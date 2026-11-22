@@ -12,6 +12,7 @@ pub mod error;
 pub mod hlc;
 pub mod ids;
 pub mod imports;
+pub mod manual_matches;
 pub mod period;
 pub mod planned;
 pub mod review;

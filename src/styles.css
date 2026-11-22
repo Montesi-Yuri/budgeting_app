@@ -141,3 +141,22 @@ input.big-input { font-size: 1.6rem; padding: 10px 12px; }
 .app.phone .topbar { position: sticky; top: 0; z-index: 1; }
 .tab .badge { margin-left: 6px; }
 .card progress { width: 100%; }
+
+/* A match's two versions side by side (review list). */
+table.compare {
+  border-collapse: collapse;
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+}
+table.compare caption {
+  text-align: left;
+}
+table.compare th,
+table.compare td {
+  padding: 2px 8px 2px 0;
+  text-align: left;
+  vertical-align: top;
+}
+table.compare thead th {
+  font-weight: 600;
+}

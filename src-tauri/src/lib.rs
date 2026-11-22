@@ -104,6 +104,8 @@ pub fn run() {
             commands::transfer_confirm,
             commands::transfer_reject,
             commands::savings_progress_get,
+            commands::manual_match_confirm,
+            commands::manual_match_reject,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the app");

@@ -6,8 +6,9 @@
 //! not Income. Transactions without a (live) Category are Uncategorised.
 //!
 //! Transactions in a Transfer that isn't rejected are left out: a Transfer
-//! is never Income or an Expense (see [`crate::transfers`]). Not yet
-//! excluded: Manual Transactions hidden by a match (ticket 07).
+//! is never Income or an Expense (see [`crate::transfers`]). So are Manual
+//! Transactions hidden by a match: only the imported Transaction counts
+//! (see [`crate::manual_matches`]).
 
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
@@ -15,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::categories::CategoryKind;
 use crate::error::Result;
 use crate::store::Store;
-use crate::transfers;
+use crate::{manual_matches, transfers};
 
 /// The signed sum of one Category's Transactions in the range.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,7 +53,8 @@ impl Totals {
 }
 
 /// Totals of the live Transactions on live Accounts dated `from..=to`
-/// (`YYYY-MM-DD`), leaving out those in a Transfer that isn't rejected.
+/// (`YYYY-MM-DD`), leaving out those in a Transfer that isn't rejected and
+/// the Manual Transactions hidden by a match.
 pub fn for_dates(store: &Store, from: &str, to: &str) -> Result<Totals> {
     let sql = format!(
         "SELECT c.id, c.kind, SUM(t.amount_minor)
@@ -61,9 +63,11 @@ pub fn for_dates(store: &Store, from: &str, to: &str) -> Result<Totals> {
          LEFT JOIN category c ON c.id = t.category_id AND c.deleted = 0
          WHERE t.deleted = 0 AND t.date BETWEEN ?1 AND ?2
            AND t.id NOT IN ({})
+           AND t.id NOT IN ({})
          GROUP BY c.id, c.kind
          ORDER BY c.id",
-        transfers::IN_TRANSFER_SQL
+        transfers::IN_TRANSFER_SQL,
+        manual_matches::HIDDEN_MANUAL_SQL
     );
     let mut stmt = store.conn().prepare(&sql)?;
     let rows = stmt.query_map(params![from, to], |r| {

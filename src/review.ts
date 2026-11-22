@@ -37,3 +37,34 @@ export function linkCandidates(
       !paired.has(t.id),
   );
 }
+
+/** One line of a match's comparison: each version, and what is kept after merging. */
+export type MatchRow = { label: string; manual: string; imported: string; merged: string };
+
+/**
+ * A Manual Transaction and the imported Transaction it matches, side by side.
+ * Merging keeps the imported date, amount and description, and the Manual
+ * Transaction's Category and note (the imported ones when it has none).
+ */
+export function matchRows(manual: TransactionView, imported: TransactionView, money: (minor: number) => string): MatchRow[] {
+  const category = (t: TransactionView) => t.category_name ?? "Uncategorised";
+  const note = (t: TransactionView) => t.note ?? "";
+  const fromImport = (label: string, value: (t: TransactionView) => string): MatchRow => ({
+    label,
+    manual: value(manual),
+    imported: value(imported),
+    merged: value(imported),
+  });
+  return [
+    fromImport("Date", (t) => t.date),
+    fromImport("Amount", (t) => money(t.amount_minor)),
+    fromImport("Description", (t) => t.description),
+    {
+      label: "Category",
+      manual: category(manual),
+      imported: category(imported),
+      merged: category(manual.category_id !== null ? manual : imported),
+    },
+    { label: "Note", manual: note(manual), imported: note(imported), merged: note(manual.note !== null ? manual : imported) },
+  ];
+}
