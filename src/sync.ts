@@ -16,6 +16,8 @@ const VIEWS_BY_ENTITY: Record<string, DataView[]> = {
   txn: ["forecast", "review", "accounts", "transactions", "uncategorised", "budgets"],
   // Transactions in a Transfer leave the Uncategorised list and Budgets.
   transfer: ["forecast", "review", "uncategorised", "budgets"],
+  // A match hides its Manual Transaction from balances, Uncategorised, Budgets and the Forecast.
+  manual_match: ["forecast", "review", "accounts", "transactions", "uncategorised", "budgets"],
   budget: ["forecast", "budgets"],
   // What is still expected (the review list) follows the Planned items.
   planned_item: ["forecast", "review", "planned"],

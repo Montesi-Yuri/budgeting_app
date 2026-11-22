@@ -296,11 +296,13 @@ pub fn list_for_account(store: &Store, account_id: &str) -> Result<Vec<Transacti
 
 /// Every live Transaction without a Category (or whose Category was
 /// deleted), on any live Account, newest first. Transactions in a Transfer
-/// that isn't rejected need no Category, so they are left out.
+/// that isn't rejected need no Category, so they are left out, and so are
+/// Manual Transactions hidden by a match (they don't count).
 pub fn list_uncategorised(store: &Store) -> Result<Vec<TransactionView>> {
     let filter = format!(
-        "c.id IS NULL AND t.id NOT IN ({})",
-        crate::transfers::IN_TRANSFER_SQL
+        "c.id IS NULL AND t.id NOT IN ({}) AND t.id NOT IN ({})",
+        crate::transfers::IN_TRANSFER_SQL,
+        crate::manual_matches::HIDDEN_MANUAL_SQL
     );
     list_where(store.conn(), &filter, [])
 }

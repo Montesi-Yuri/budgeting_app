@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionView, TransferView } from "./api";
-import { badgeText, linkCandidates, sideText } from "./review";
+import { badgeText, linkCandidates, matchRows, sideText } from "./review";
 
 const txn = (over: Partial<TransactionView> = {}): TransactionView => ({
   id: "t1",
@@ -66,5 +66,41 @@ describe("linkCandidates: Transactions that can be linked by hand", () => {
     ];
     const ids = linkCandidates(chosen, [chosen, sameAccount, sameSign, paired, alone, free], transfers).map((t) => t.id);
     expect(ids).toEqual(["o", "f"]);
+  });
+});
+
+describe("matchRows: a match's two versions side by side", () => {
+  const manual = txn({
+    id: "m1",
+    source: "manual",
+    account_name: "Card",
+    date: "2026-11-09",
+    amount_minor: -249,
+    description: "Coffee with Ana",
+    category_id: "c1",
+    category_name: "Bars",
+    note: "my treat",
+  });
+  const imported = txn({ id: "i1", account_name: "Card", date: "2026-11-10", amount_minor: -250, description: "BAR CENTRALE" });
+
+  it("keeps the imported date, amount and description and the user's Category and note", () => {
+    expect(matchRows(manual, imported, String)).toEqual([
+      { label: "Date", manual: "2026-11-09", imported: "2026-11-10", merged: "2026-11-10" },
+      { label: "Amount", manual: "-249", imported: "-250", merged: "-250" },
+      { label: "Description", manual: "Coffee with Ana", imported: "BAR CENTRALE", merged: "BAR CENTRALE" },
+      { label: "Category", manual: "Bars", imported: "Uncategorised", merged: "Bars" },
+      { label: "Note", manual: "my treat", imported: "", merged: "my treat" },
+    ]);
+  });
+  it("keeps the imported Category and note when the Manual Transaction has none", () => {
+    const rows = matchRows(
+      txn({ ...manual, category_id: null, category_name: null, note: null }),
+      txn({ ...imported, category_id: "c2", category_name: "Groceries", note: "bank" }),
+      String,
+    );
+    expect(rows.slice(3)).toEqual([
+      { label: "Category", manual: "Uncategorised", imported: "Groceries", merged: "Groceries" },
+      { label: "Note", manual: "", imported: "bank", merged: "bank" },
+    ]);
   });
 });

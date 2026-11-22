@@ -7,16 +7,17 @@
 //! confirmed. A `rejected` row is kept, so the same pair is never suggested
 //! again.
 //!
-//! Ticket 06 adds the Transfer items, ticket 09 the Planned item ones
+//! Ticket 06 adds the Transfer items, ticket 07 the Manual Transaction
+//! matches ([`crate::manual_matches`]) and ticket 09 the Planned item ones
 //! (fulfilment Suggestions, and occurrences still expected after their
-//! Period). Ticket 07 (Manual Transaction matches) adds its own
-//! [`ReviewItem`] variants and fills them in [`list`].
+//! Period).
 
 use serde::{Deserialize, Serialize};
 
 use crate::date::Date;
 use crate::error::{Error, Result};
 use crate::fulfilment::{self, Fulfilment};
+use crate::manual_matches::{self, ManualMatchView};
 use crate::period::Period;
 use crate::planned::{self, Occurrence};
 use crate::store::Store;
@@ -67,6 +68,9 @@ pub enum ReviewItem {
     /// An occurrence whose Period has ended and that is still expected:
     /// "skipped or arrives later?".
     StillExpected { occurrence: Occurrence },
+    /// An imported Transaction that looks like a Manual Transaction the
+    /// user entered by hand: confirm (merge them) or reject.
+    ManualMatchSuggestion { manual_match: ManualMatchView },
 }
 
 impl ReviewItem {
@@ -77,6 +81,7 @@ impl ReviewItem {
             ReviewItem::TransferSuggestion { .. }
                 | ReviewItem::FulfilmentSuggestion { .. }
                 | ReviewItem::StillExpected { .. }
+                | ReviewItem::ManualMatchSuggestion { .. }
         )
     }
 }
@@ -105,6 +110,9 @@ pub fn list(store: &Store, today: Date) -> Result<ReviewList> {
         {
             missing.push(ReviewItem::TransferMissingSide { transfer });
         }
+    }
+    for manual_match in manual_matches::suggestions(store)? {
+        pending.push(ReviewItem::ManualMatchSuggestion { manual_match });
     }
     for fulfilment in fulfilment::list(store)? {
         if fulfilment.status == LinkStatus::Suggested {

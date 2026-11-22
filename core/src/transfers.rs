@@ -238,6 +238,52 @@ pub(crate) fn after_import(
     Ok(())
 }
 
+/// When a Manual Transaction merges into its imported Transaction
+/// ([`crate::manual_matches::confirm`]), the imported one takes its place
+/// in the Transfer the Manual Transaction was a side of, keeping that
+/// Transfer's status and origin. Nothing changes if the Manual Transaction
+/// is in no Transfer, or if the imported one is already in a Transfer with
+/// both sides; a Transfer the imported one has on its own gives way.
+pub(crate) fn hand_over_side(
+    w: &mut Writer<'_>,
+    manual_txn_id: &str,
+    imported: &Transaction,
+) -> Result<()> {
+    let Some(old) = live_transfer_of(w.conn(), manual_txn_id)? else {
+        return Ok(());
+    };
+    if let Some(own) = live_transfer_of(w.conn(), &imported.id)? {
+        if own.out_txn_id.is_some() && own.in_txn_id.is_some() {
+            return Ok(());
+        }
+        w.delete::<Transfer>(&own.id)?;
+    }
+    let swap = |side: Option<String>| {
+        side.map(|id| {
+            if id == manual_txn_id {
+                imported.id.clone()
+            } else {
+                id
+            }
+        })
+    };
+    let out_txn_id = swap(old.out_txn_id.clone());
+    let in_txn_id = swap(old.in_txn_id.clone());
+    let id = match (&out_txn_id, &in_txn_id) {
+        (Some(out), Some(into)) => pair_id(out, into),
+        _ => side_id(&imported.id),
+    };
+    w.delete::<Transfer>(&old.id)?;
+    w.upsert(&Transfer {
+        id,
+        out_txn_id,
+        in_txn_id,
+        status: old.status,
+        origin: old.origin,
+    })?;
+    Ok(())
+}
+
 /// A Transfer with only `txn` as its side so far.
 fn one_sided(txn: &Transaction, status: LinkStatus, origin: TransferOrigin) -> Transfer {
     let (out_txn_id, in_txn_id) = if txn.amount_minor < 0 {
@@ -264,9 +310,16 @@ fn other_side(
     let Ok(date) = txn.date.parse::<Date>() else {
         return Ok(None);
     };
+    // A Manual Transaction hidden by a match doesn't count: its imported
+    // Transaction is the one that can be a side.
+    let filter = format!(
+        "t.amount_minor = ?1 AND t.account_id <> ?2 AND t.date BETWEEN ?3 AND ?4
+         AND t.id NOT IN ({})",
+        crate::manual_matches::HIDDEN_MANUAL_SQL
+    );
     let candidates = transactions::list_where(
         conn,
-        "t.amount_minor = ?1 AND t.account_id <> ?2 AND t.date BETWEEN ?3 AND ?4",
+        &filter,
         params![
             -txn.amount_minor,
             txn.account_id,

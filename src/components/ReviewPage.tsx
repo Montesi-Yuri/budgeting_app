@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, errorMessage, ReviewList, TransactionView, TransferView } from "../api";
+import { api, errorMessage, ManualMatchView, ReviewList, TransactionView, TransferView } from "../api";
 import { formatMinor } from "../money";
 import { localToday } from "../periods";
-import { linkCandidates, sideText } from "../review";
+import { linkCandidates, matchRows, sideText } from "../review";
 import PlannedReview from "./PlannedReview";
 import { Money } from "./TransactionsPage";
 
@@ -45,6 +45,7 @@ export default function ReviewPage({ currency, onChanged }: { currency: string; 
 
   const suggestions = review?.items.filter((i) => i.kind === "transfer_suggestion") ?? [];
   const missing = review?.items.filter((i) => i.kind === "transfer_missing_side") ?? [];
+  const matches = review?.items.flatMap((i) => (i.kind === "manual_match_suggestion" ? [i.manual_match] : [])) ?? [];
 
   return (
     <>
@@ -72,6 +73,29 @@ export default function ReviewPage({ currency, onChanged }: { currency: string; 
           ))}
         </ul>
       </section>
+
+      {matches.length > 0 && (
+        <section className="card">
+          <h2>Entered by hand, then imported</h2>
+          <p className="muted small">
+            These imported Transactions look like ones you entered by hand. Until you decide, only the imported one
+            counts. Confirm merges them: the imported date and amount win, and your Category and note are kept.
+          </p>
+          <ul className="list">
+            {matches.map((m) => (
+              <li key={m.id} className="row-item">
+                <MatchComparison match={m} currency={currency} />
+                <span className="actions">
+                  <button className="primary" onClick={() => run(() => api.manualMatchConfirm(m.id))}>
+                    Merge
+                  </button>
+                  <button onClick={() => run(() => api.manualMatchReject(m.id))}>Keep both</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {missing.length > 0 && (
         <section className="card">
@@ -115,6 +139,33 @@ export default function ReviewPage({ currency, onChanged }: { currency: string; 
         </ul>
       </section>
     </>
+  );
+}
+
+function MatchComparison({ match, currency }: { match: ManualMatchView; currency: string }) {
+  const rows = matchRows(match.manual_txn, match.imported_txn, (minor) => formatMinor(minor, currency));
+  return (
+    <table className="grow compare">
+      <caption className="name">{match.imported_txn.account_name}</caption>
+      <thead>
+        <tr>
+          <th />
+          <th>Entered by hand</th>
+          <th>Imported</th>
+          <th>After merging</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.label}>
+            <th scope="row">{r.label}</th>
+            <td>{r.manual}</td>
+            <td>{r.imported}</td>
+            <td>{r.merged}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

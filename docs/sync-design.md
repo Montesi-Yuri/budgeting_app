@@ -337,6 +337,8 @@ When a `manual_match` exists and is not `rejected`, the numbers ignore the manua
 
 Each step is a normal row write, so the merge syncs like any other change.
 
+As built (`core/src/manual_matches.rs`): a match hides its Manual Transaction only while its imported txn is live (`HIDDEN_MANUAL_SQL`, used by balances, totals, the Uncategorised list, the Import balance check and Transfer candidates). If the Manual Transaction was a side of a Transfer, confirming hands that side over to the imported txn. Only a `suggested` match can be confirmed or rejected.
+
 ### 1.7 Calculated values (never stored)
 
 These are pure functions over the tables above, recalculated after every write and every Sync batch.

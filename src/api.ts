@@ -154,7 +154,15 @@ export type ReviewItem =
   /** An imported Transaction suggested as the actual of a Planned item's occurrence. */
   | { kind: "fulfilment_suggestion"; fulfilment: Fulfilment }
   /** An occurrence still expected after its Period ended: "skipped or arrives later?". */
-  | { kind: "still_expected"; occurrence: Occurrence };
+  | { kind: "still_expected"; occurrence: Occurrence }
+  /** An imported Transaction that looks like a Manual Transaction: confirm (merge) or reject. */
+  | { kind: "manual_match_suggestion"; manual_match: ManualMatchView };
+
+/** A link between a Manual Transaction and the imported Transaction it duplicates. */
+export type ManualMatch = { id: string; manual_txn_id: string; imported_txn_id: string; status: LinkStatus };
+
+/** A match with both versions, side by side. */
+export type ManualMatchView = ManualMatch & { manual_txn: TransactionView; imported_txn: TransactionView };
 
 /** pending_count: the items waiting for a decision (the badge). */
 export type ReviewList = { items: ReviewItem[]; pending_count: number };
@@ -363,6 +371,10 @@ export const api = {
   transferConfirm: (id: string) => invoke<Transfer>("transfer_confirm", { id }),
   /** Reject a Suggestion, or unlink a Transfer. The pair is never suggested again. */
   transferReject: (id: string) => invoke<Transfer>("transfer_reject", { id }),
+  /** Merge a matched Manual Transaction into the imported one (its Category and note move over). */
+  manualMatchConfirm: (id: string) => invoke<ManualMatch>("manual_match_confirm", { id }),
+  /** Keep both Transactions. The pair is never suggested again. */
+  manualMatchReject: (id: string) => invoke<ManualMatch>("manual_match_reject", { id }),
   /** Savings progress for a Period (YYYY-MM). */
   savingsProgressGet: (period: string) => invoke<SavingsProgress>("savings_progress_get", { period }),
   backupExport: (path: string, passphrase: string) => invoke<void>("backup_export", { path, passphrase }),

@@ -375,6 +375,28 @@ fn in_transfer(conn: &Connection, txn_id: &str) -> Result<bool> {
     Ok(conn.query_row(&sql, [txn_id], |r| r.get(0))?)
 }
 
+/// When a Manual Transaction is merged into its imported copy (ticket 07),
+/// the occurrence it fulfils moves to the imported Transaction, so it isn't
+/// expected again. Nothing changes if the Manual Transaction fulfils
+/// nothing, or if the imported one already fulfils an occurrence.
+pub(crate) fn hand_over(
+    w: &mut Writer<'_>,
+    manual_txn_id: &str,
+    imported_txn_id: &str,
+) -> Result<()> {
+    let Some(row) = fulfilling(w.conn(), manual_txn_id)? else {
+        return Ok(());
+    };
+    if fulfilling(w.conn(), imported_txn_id)?.is_some() {
+        return Ok(());
+    }
+    w.upsert(&PlannedOccurrence {
+        txn_id: Some(imported_txn_id.to_owned()),
+        ..row
+    })?;
+    Ok(())
+}
+
 /// The occurrence `txn_id` fulfils (a link that isn't rejected), if any.
 fn fulfilling(conn: &Connection, txn_id: &str) -> Result<Option<PlannedOccurrence>> {
     Ok(rows_where(

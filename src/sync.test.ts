@@ -67,6 +67,9 @@ describe("viewsToRefresh: the views showing what a Sync changed", () => {
     expect(viewsToRefresh(["planned_occurrence"])).toEqual(["forecast", "review"]);
     expect(viewsToRefresh(["planned_item"])).toEqual(["forecast", "review", "planned"]);
   });
+  it("refreshes the review list and every view with numbers after a match with a Manual Transaction changed", () => {
+    expect(viewsToRefresh(["manual_match"])).toEqual(["forecast", "review", "accounts", "transactions", "uncategorised", "budgets"]);
+  });
   it("refreshes nothing when nothing changed", () => {
     expect(viewsToRefresh([])).toEqual([]);
   });

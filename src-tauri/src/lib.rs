@@ -113,6 +113,8 @@ pub fn run() {
             commands::fulfilment_unlink,
             commands::occurrence_skip,
             commands::occurrence_arrives_later,
+            commands::manual_match_confirm,
+            commands::manual_match_reject,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the app");
