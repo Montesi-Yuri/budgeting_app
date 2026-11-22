@@ -1,5 +1,6 @@
 //! Tauri shell: opens the database in the app data folder and exposes the
-//! commands. Same code for the Windows and (later) Android builds.
+//! commands. Same code for the Windows and Android builds; the Android build
+//! adds the QR code scanner (`#[cfg(mobile)]`).
 
 mod backup_commands;
 mod commands;
@@ -16,8 +17,11 @@ const DB_FILE: &str = "budget.sqlite3";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
+    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+    // The phone scans the PC's pairing QR code with its camera.
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_barcode_scanner::init());
+    builder
         .setup(|app| {
             // BUDGET_DATA_DIR runs a second instance with its own data
             // folder, e.g. to try Pairing between two instances on one PC.

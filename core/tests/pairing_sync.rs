@@ -331,7 +331,7 @@ fn when_sync_is_turned_off_the_listener_no_longer_accepts_connections() {
 
     assert!(matches!(
         pairing_error(laptop.node.sync_with(&pc.device_id())),
-        PairingError::Unreachable(_)
+        PairingError::PeerUnreachable { .. }
     ));
     assert_eq!(
         pairing_error(pc.node.start_pairing(vec!["127.0.0.1".into()])),
@@ -475,4 +475,44 @@ fn pairing_again_with_a_new_code_keeps_one_pairing_and_refreshes_the_address() {
         Some(format!("127.0.0.1:{}", second.port()))
     );
     laptop.node.sync_with(&pc.device_id()).unwrap();
+}
+
+#[test]
+fn sync_now_with_a_pc_that_cant_be_reached_suggests_rescanning_and_the_rescan_keeps_the_pairing() {
+    let pc = Device::new();
+    let phone = Device::new();
+    let first = pc.listen();
+    pair(&pc, &phone);
+    pc.add_account("acc-pc", "Checking");
+    first.stop();
+    phone.node.set_connect_timeout(Duration::from_millis(500));
+
+    let error = pairing_error(phone.node.sync_with(&pc.device_id()));
+
+    match &error {
+        PairingError::PeerUnreachable { name, .. } => assert_eq!(name, &pc_name(&phone)),
+        other => panic!("expected PeerUnreachable, got {other:?}"),
+    }
+    let message = error.to_string();
+    assert!(message.contains("scan"), "{message}");
+    assert!(message.contains("keeps the Pairing"), "{message}");
+
+    // The PC is back at a new address: rescanning only refreshes it.
+    let second = pc.listen();
+    phone.add_account("acc-phone", "Card");
+    let rescanned = phone.node.join(&pc.pairing_code()).unwrap();
+
+    assert_eq!(rescanned.peer.device_id, pc.device_id());
+    assert_eq!(phone.node.peers().unwrap().len(), 1);
+    assert_eq!(pc.node.peers().unwrap().len(), 1);
+    assert_eq!(
+        phone.node.peers().unwrap()[0].last_addr,
+        Some(format!("127.0.0.1:{}", second.port()))
+    );
+    assert_eq!(pc.rows(), phone.rows());
+    assert_eq!(phone.node.sync_with(&pc.device_id()).unwrap().sent, 0);
+}
+
+fn pc_name(phone: &Device) -> String {
+    phone.node.peers().unwrap()[0].name.clone()
 }

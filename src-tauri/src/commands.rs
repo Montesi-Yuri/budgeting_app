@@ -33,6 +33,10 @@ impl From<budget_core::Error> for CommandError {
             | budget_core::Error::WrongPassphrase
             | budget_core::Error::NotABackup(_) => "invalid",
             budget_core::Error::NotFound { .. } => "not_found",
+            // The UI offers to rescan the QR code (ticket 15).
+            budget_core::Error::Pairing(budget_core::sync::PairingError::PeerUnreachable {
+                ..
+            }) => "unreachable",
             budget_core::Error::Pairing(_)
             | budget_core::Error::Sync(_)
             | budget_core::Error::Net(_) => "sync",
@@ -69,6 +73,10 @@ pub(crate) fn lock<'a>(
 pub struct AppInfo {
     device_id: String,
     schema_version: u32,
+    /// `std::env::consts::OS`: "windows", "android", ...
+    platform: &'static str,
+    /// The phone build: phone layout and the QR scanner.
+    mobile: bool,
 }
 
 #[tauri::command]
@@ -77,6 +85,8 @@ pub fn app_info(store: State<'_, AppStore>) -> CmdResult<AppInfo> {
     Ok(AppInfo {
         device_id: store.device_id().to_owned(),
         schema_version: store.schema_version()?,
+        platform: std::env::consts::OS,
+        mobile: cfg!(mobile),
     })
 }
 

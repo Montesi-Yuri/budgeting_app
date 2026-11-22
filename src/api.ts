@@ -209,13 +209,20 @@ export type BackupSchedule = {
   last_error: string | null;
 };
 
-export type AppInfo = { device_id: string; schema_version: number };
+export type AppInfo = {
+  device_id: string;
+  schema_version: number;
+  /** "windows", "android", ... */
+  platform: string;
+  /** The phone build: phone layout and the QR code scanner. */
+  mobile: boolean;
+};
 
 /** Per-Device Sync settings and whether the listener runs. */
 export type SyncStatus = { enabled: boolean; port: number; listening: boolean; addrs: string[] };
 
-/** "Pair new device": the text to paste on the other Device. */
-export type PairingInfo = { payload: string; expires_at: number; addrs: string[]; port: number };
+/** "Pair new device": the text to paste on the other Device, and the same as a QR code (SVG) for the phone. */
+export type PairingInfo = { payload: string; qr_svg: string; expires_at: number; addrs: string[]; port: number };
 
 /** A paired Device. Times are Unix seconds. */
 export type Peer = {
@@ -241,7 +248,7 @@ export type SyncProgress = { peer_device_id: string; phase: "exchanging" | "fini
 export type JoinResult = { peer: Peer; report: SyncReport };
 
 /** What a failed command rejects with. */
-export type CommandError = { kind: "invalid" | "not_found" | "internal" | "sync"; message: string };
+export type CommandError = { kind: "invalid" | "not_found" | "internal" | "sync" | "unreachable"; message: string };
 
 export function errorMessage(err: unknown): string {
   if (err && typeof err === "object" && "message" in err) return String((err as CommandError).message);

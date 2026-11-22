@@ -27,6 +27,9 @@ pub enum PairingError {
     InvalidToken,
     #[error("Could not reach the other Device at {0}. Check that both Devices are on the same network and that Sync is on there.")]
     Unreachable(String),
+    /// "Sync now" found no paired Device at its last known address.
+    #[error("Could not reach {name} at {addrs}. Check that it is on the same network and that Sync is on there. If it is, its address may have changed: scan its pairing QR code again (\"Pair new device\" on {name}). That only refreshes the address and keeps the Pairing.")]
+    PeerUnreachable { name: String, addrs: String },
     #[error("The other Device closed the connection: it does not know this Device. Pair the two Devices again.")]
     NotAccepted,
     #[error("This Device is not paired with {0}.")]
@@ -85,6 +88,11 @@ impl PairingPayload {
         let mut bytes = Vec::new();
         ciborium::into_writer(&wire, &mut bytes).expect("CBOR into a Vec can't fail");
         format!("{PREFIX}{}", URL_SAFE_NO_PAD.encode(bytes))
+    }
+
+    /// The text form as a QR code, for the phone's camera (ticket 15).
+    pub fn to_qr(&self) -> Qr {
+        Qr::new(&self.to_text())
     }
 
     /// Read a pasted (or scanned) pairing payload.
@@ -171,4 +179,59 @@ pub fn local_addresses() -> Vec<String> {
         addrs.push("127.0.0.1".to_owned());
     }
     addrs
+}
+
+/// A QR code: a square of dark and light modules.
+#[derive(Debug, Clone)]
+pub struct Qr {
+    size: usize,
+    dark: Vec<bool>,
+}
+
+/// Light modules around the code, as the QR standard asks for.
+const QUIET_ZONE: usize = 4;
+
+impl Qr {
+    /// Encode `text`, with medium error correction so a slightly blurred
+    /// phone camera picture still reads.
+    pub fn new(text: &str) -> Qr {
+        let code = qrcode::QrCode::with_error_correction_level(text, qrcode::EcLevel::M)
+            .expect("a pairing code fits in a QR code");
+        let dark = code
+            .to_colors()
+            .into_iter()
+            .map(|c| c == qrcode::Color::Dark)
+            .collect();
+        Qr {
+            size: code.width(),
+            dark,
+        }
+    }
+
+    /// Modules per side, without the quiet zone.
+    pub fn size(&self) -> usize {
+        self.size
+    }
+
+    /// Whether the module in column `x`, row `y` is dark.
+    pub fn is_dark(&self, x: usize, y: usize) -> bool {
+        self.dark[y * self.size + x]
+    }
+
+    /// An SVG picture of the code: black modules on white, with the quiet
+    /// zone, one unit per module. Scale it with CSS.
+    pub fn to_svg(&self) -> String {
+        let side = self.size + 2 * QUIET_ZONE;
+        let mut path = String::new();
+        for y in 0..self.size {
+            for x in 0..self.size {
+                if self.is_dark(x, y) {
+                    path.push_str(&format!("M{} {}h1v1h-1z", x + QUIET_ZONE, y + QUIET_ZONE));
+                }
+            }
+        }
+        format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {side} {side}\" shape-rendering=\"crispEdges\"><rect width=\"{side}\" height=\"{side}\" fill=\"#fff\"/><path d=\"{path}\" fill=\"#000\"/></svg>"
+        )
+    }
 }

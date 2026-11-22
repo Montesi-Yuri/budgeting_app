@@ -424,6 +424,14 @@ The same Noise IK handshake is used with no token. After the handshake, the PC c
 - The joining Device stores the address that worked as the listener's `last_addr`. The listener stores no address for a Device that connects to it, so "Sync now" is started from the joining Device.
 - `device_id` in Hello must match the paired Device the key belongs to.
 
+### 2.5 As built (ticket 15: the phone)
+
+- The PC shows the payload as a QR code: `PairingPayload::to_qr()` returns a `Qr` (medium error correction, read back in the tests with an independent decoder), and `Qr::to_svg()` is the picture shown by "Pair new device", with a 4-module white quiet zone. The phone scans it with `tauri-plugin-barcode-scanner` (phone build only) and passes the text to `SyncNode::join`, as the desktop does with a pasted code.
+- "Sync now" (`sync_with` / `sync_with_addrs`) that finds no Device at any address fails with `PairingError::PeerUnreachable { name, addrs }`, whose message suggests rescanning the QR code. The shell gives it the error kind `unreachable`, and the UI then offers the rescan. A rescan is a `join` with a fresh code: it refreshes the PC's `last_addr` and keeps the Pairing (§2.4).
+- The phone is the joining Device, so it has the PC's address and starts every Sync. It doesn't need to listen.
+- A new phone can pair from the welcome screen, before choosing a Currency, so it gets the PC's Currency instead of overriding it.
+- On Android the Noise key is still the `sync.key` file, in the app's private data folder. Moving it to the Android Keystore is still to do.
+
 ---
 
 ## 3. Sync protocol

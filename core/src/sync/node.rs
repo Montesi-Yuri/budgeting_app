@@ -276,7 +276,16 @@ impl SyncNode {
                 peer.name, peer.name
             )));
         }
-        let (mut conn, addr) = self.connect_any(addrs.into_iter(), &key)?;
+        let (mut conn, addr) = match self.connect_any(addrs.into_iter(), &key) {
+            Err(Error::Pairing(PairingError::Unreachable(addrs))) => {
+                return Err(PairingError::PeerUnreachable {
+                    name: peer.name,
+                    addrs,
+                }
+                .into())
+            }
+            other => other?,
+        };
         if peer.last_addr.as_deref() != Some(&addr) {
             peers::set_addr(&*lock(&self.inner.store)?, device_id, &addr)?;
         }

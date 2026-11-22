@@ -192,8 +192,10 @@ pub fn sync_server_set(
 
 #[derive(Debug, Serialize)]
 pub struct PairingInfo {
-    /// The text to paste on the other Device (later: shown as a QR code).
+    /// The text to paste on the other Device.
     payload: String,
+    /// The same text as a QR code (an SVG picture), for the phone to scan.
+    qr_svg: String,
     /// Unix seconds.
     expires_at: u64,
     addrs: Vec<String>,
@@ -206,6 +208,7 @@ pub fn pairing_start(sync: State<'_, SyncState>) -> CmdResult<PairingInfo> {
     let payload = sync.node.start_pairing(local_addresses())?;
     Ok(PairingInfo {
         payload: payload.to_text(),
+        qr_svg: payload.to_qr().to_svg(),
         expires_at: payload.expires_at,
         addrs: payload.addrs,
         port: payload.port,
@@ -223,7 +226,9 @@ pub struct JoinResult {
     report: SyncReport,
 }
 
-/// Pair with the Device whose payload was pasted, then run the first Sync.
+/// Pair with the Device whose payload was pasted or scanned, then run the
+/// first Sync. Scanning again a Device already paired only refreshes its
+/// address: the Pairing is kept.
 #[tauri::command]
 pub async fn pairing_join(sync: State<'_, SyncState>, payload: String) -> CmdResult<JoinResult> {
     let node = sync.node.clone();
