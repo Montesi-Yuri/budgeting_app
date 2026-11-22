@@ -5,11 +5,12 @@ import BudgetsPage from "./components/BudgetsPage";
 import CategoriesPage from "./components/CategoriesPage";
 import CurrencyPicker from "./components/CurrencyPicker";
 import HomePage from "./components/HomePage";
+import PlannedItemsPage from "./components/PlannedItemsPage";
 import SettingsPage from "./components/SettingsPage";
 import TransactionsPage from "./components/TransactionsPage";
 import UncategorisedPage from "./components/UncategorisedPage";
 
-type View = "home" | "accounts" | "transactions" | "uncategorised" | "categories" | "settings" | "budgets";
+type View = "home" | "accounts" | "transactions" | "uncategorised" | "categories" | "settings" | "budgets" | "planned";
 
 const VIEWS: { view: View; label: string }[] = [
   { view: "home", label: "Home" },
@@ -19,6 +20,7 @@ const VIEWS: { view: View; label: string }[] = [
   { view: "categories", label: "Categories" },
   { view: "settings", label: "Settings" },
   { view: "budgets", label: "Budgets" },
+  { view: "planned", label: "Planned" },
 ];
 
 export default function App() {
@@ -69,6 +71,7 @@ export default function App() {
         {view === "categories" && <CategoriesPage />}
         {view === "settings" && <SettingsPage currency={currency} onCurrencyChange={chooseCurrency} />}
         {view === "budgets" && <BudgetsPage currency={currency} />}
+        {view === "planned" && <PlannedItemsPage currency={currency} />}
       </main>
     </div>
   );

@@ -12,6 +12,7 @@ use crate::budgets::Budget;
 use crate::categories::Category;
 use crate::error::{Error, Result};
 use crate::hlc::Hlc;
+use crate::planned::PlannedItem;
 use crate::settings::Setting;
 use crate::store::SyncedRow;
 use crate::transactions::Transaction;
@@ -23,6 +24,7 @@ pub const SYNCED_ENTITIES: &[SyncedEntity] = &[
     entity::<Category>(),
     entity::<Transaction>(),
     entity::<Budget>(),
+    entity::<PlannedItem>(),
 ];
 
 /// One registered synced entity: its table and how to save a row decoded

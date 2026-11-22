@@ -10,6 +10,7 @@ mod db;
 pub mod error;
 pub mod hlc;
 pub mod period;
+pub mod planned;
 pub mod settings;
 pub mod spendable;
 pub mod store;

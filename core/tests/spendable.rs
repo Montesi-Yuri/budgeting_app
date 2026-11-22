@@ -283,3 +283,166 @@ fn spendable_is_recalculated_after_every_change() {
     settings::set_savings_target(&mut f.store, 10_000).unwrap();
     assert_eq!(f.on("2026-11", "2026-11-21").spendable_minor, 87_500);
 }
+
+// ----- Planned items and Set-asides (ticket 08) -----
+
+use budget_core::planned::{self, NewPlannedItem, Schedule};
+
+impl Fixture {
+    fn plan(
+        &mut self,
+        category: &Category,
+        amount_minor: i64,
+        schedule: Schedule,
+    ) -> NewPlannedItem {
+        NewPlannedItem {
+            account_id: self.account.id.clone(),
+            category_id: category.id.clone(),
+            description: "Planned".into(),
+            amount_minor,
+            schedule,
+            start_date: d("2026-01-01"),
+            end_date: None,
+            set_aside: None,
+        }
+    }
+
+    fn insurance(&mut self, amount_minor: i64) -> NewPlannedItem {
+        let groceries = self.groceries.clone();
+        self.plan(
+            &groceries,
+            amount_minor,
+            Schedule::Yearly { month: 6, day: 15 },
+        )
+    }
+
+    fn add_plan(&mut self, new: NewPlannedItem) {
+        planned::create(&mut self.store, new).unwrap();
+    }
+}
+
+#[test]
+fn a_monthly_salary_on_the_27th_is_expected_income_in_every_period() {
+    let mut f = fixture();
+    let salary = f.salary.clone();
+    let new = f.plan(
+        &salary,
+        250_000,
+        Schedule::Monthly {
+            day: 27,
+            every_months: 1,
+        },
+    );
+    f.add_plan(new);
+    f.spend("2026-11-03", 50_000);
+
+    let s = f.on("2026-11", "2026-11-21");
+
+    assert_eq!(s.expected_income_minor, 250_000);
+    assert_eq!(s.expected_expenses_minor, 0);
+    assert_eq!(s.spendable_minor, 200_000);
+    assert_eq!(f.on("2027-02", "2026-11-21").spendable_minor, 250_000);
+}
+
+#[test]
+fn expected_expenses_that_are_not_spread_reduce_spendable() {
+    let mut f = fixture();
+    let groceries = f.groceries.clone();
+    let rent = f.plan(
+        &groceries,
+        -90_000,
+        Schedule::Monthly {
+            day: 1,
+            every_months: 1,
+        },
+    );
+    f.add_plan(rent);
+    let insurance = f.insurance(-60_000);
+    f.add_plan(NewPlannedItem {
+        set_aside: Some(false),
+        ..insurance
+    });
+
+    let november = f.on("2026-11", "2026-11-21");
+    assert_eq!(november.expected_expenses_minor, -90_000);
+    assert_eq!(november.set_asides_minor, 0);
+    assert_eq!(november.spendable_minor, -90_000);
+    // Not spread: the whole 600 hits June.
+    assert_eq!(f.on("2026-06", "2026-11-21").spendable_minor, -150_000);
+}
+
+#[test]
+fn a_yearly_600_item_sets_aside_50_from_every_period() {
+    let mut f = fixture();
+    let insurance = f.insurance(-60_000);
+    f.add_plan(insurance);
+
+    for period in ["2026-01", "2026-05", "2026-07", "2026-11", "2027-04"] {
+        let s = f.on(period, "2026-11-21");
+        assert_eq!(s.set_asides_minor, -5_000, "{period}");
+        assert_eq!(s.spendable_minor, -5_000, "{period}");
+    }
+}
+
+#[test]
+fn the_june_period_does_not_count_the_yearly_item_twice() {
+    let mut f = fixture();
+    let insurance = f.insurance(-60_000);
+    f.add_plan(insurance);
+
+    let june = f.on("2026-06", "2026-06-10");
+
+    assert_eq!(june.set_asides_minor, -5_000);
+    assert_eq!(june.expected_expenses_minor, 0);
+    assert_eq!(june.spendable_minor, -5_000);
+}
+
+#[test]
+fn an_item_that_ends_partway_through_the_year_stops_counting_after_its_end() {
+    let mut f = fixture();
+    let groceries = f.groceries.clone();
+    let mut gym = f.plan(
+        &groceries,
+        -4_000,
+        Schedule::Monthly {
+            day: 5,
+            every_months: 1,
+        },
+    );
+    gym.end_date = Some(d("2026-08-31"));
+    f.add_plan(gym);
+    let mut insurance = f.insurance(-60_000);
+    insurance.end_date = Some(d("2026-08-31"));
+    f.add_plan(insurance);
+
+    let august = f.on("2026-08", "2026-11-21");
+    assert_eq!(august.expected_expenses_minor, -4_000);
+    assert_eq!(august.set_asides_minor, -5_000);
+
+    let september = f.on("2026-09", "2026-11-21");
+    assert_eq!(september.expected_expenses_minor, 0);
+    assert_eq!(september.set_asides_minor, 0);
+    assert_eq!(september.spendable_minor, 0);
+}
+
+#[test]
+fn set_asides_and_expected_occurrences_reach_the_weekly_spendable() {
+    let mut f = fixture();
+    let salary = f.salary.clone();
+    let new = f.plan(
+        &salary,
+        310_000,
+        Schedule::Monthly {
+            day: 27,
+            every_months: 1,
+        },
+    );
+    f.add_plan(new);
+    let insurance = f.insurance(-12_000); // 10.00 per Period
+    f.add_plan(insurance);
+
+    // Tuesday 1 December: 3,090.00 over 31 days, 6 of them this Week.
+    let dec = f.on("2026-12", "2026-12-01");
+    assert_eq!(dec.spendable_minor, 309_000);
+    assert_eq!(dec.weekly.unwrap().amount_minor, 59_806);
+}

@@ -51,6 +51,12 @@ pub fn run() {
             commands::savings_target_get,
             commands::savings_target_set,
             commands::spendable_get,
+            commands::planned_items_list,
+            commands::planned_item_create,
+            commands::planned_item_update,
+            commands::planned_item_end,
+            commands::planned_item_delete,
+            commands::planned_period_get,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the app");
