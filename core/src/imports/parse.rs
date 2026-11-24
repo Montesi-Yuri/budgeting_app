@@ -98,6 +98,28 @@ fn read_lines(
         None => return Err("The file has no header line.".to_owned()),
     };
     out.columns = header.iter().map(|c| c.trim().to_owned()).collect();
+    // A header read as one column usually means the file uses another
+    // separator; say so rather than "no column X".
+    if let [only] = out.columns.as_slice() {
+        if let Some(other) = [';', ',', '\t']
+            .into_iter()
+            .find(|&c| c != delimiter && only.contains(c))
+        {
+            let name = |c: char| {
+                if c == '\t' {
+                    "a tab".to_owned()
+                } else {
+                    c.to_string()
+                }
+            };
+            return Err(format!(
+                "The header has only one column. The file seems to use {} as the separator, \
+                 but the Import profile uses {}. Edit the Import profile.",
+                name(other),
+                name(delimiter)
+            ));
+        }
+    }
 
     let layout = Layout::new(profile, &out.columns)?;
     let reader = Reader {
@@ -427,5 +449,50 @@ pub(crate) fn check_date_format(format: &str) -> Result<(), String> {
         Err(format!(
             "The date format {format} needs a day (%d), a month (%m) and a year (%Y or %y)."
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The saved "BCC movimenti" profile, as stored on the user's PC.
+    fn bcc_profile() -> ImportProfile {
+        ImportProfile {
+            name: "BCC movimenti".into(),
+            date_column: "Data contabile".into(),
+            amount_column: Some("Importo".into()),
+            description_columns: vec!["Descrizione".into()],
+            ..ImportProfile::draft("acc")
+        }
+    }
+
+    const COMMA_FILE: &str =
+        "Intestatario, Rapporto, Data contabile, Data valuta, Importo, Causale, Descrizione\n\
+MONTESI YURI,K087,23/11/2026,19/11/2026,-74.32,Pagamento tramite POS,ESSO ADS ROSORA\n";
+
+    #[test]
+    fn a_file_with_another_separator_says_so() {
+        let parsed = parse(&bcc_profile(), 2, COMMA_FILE.as_bytes());
+        assert_eq!(
+            parsed.problem.as_deref(),
+            Some(
+                "The header has only one column. The file seems to use , as the separator, \
+                 but the Import profile uses ;. Edit the Import profile."
+            )
+        );
+    }
+
+    #[test]
+    fn the_same_file_reads_with_a_matching_separator() {
+        let profile = ImportProfile {
+            delimiter: ",".into(),
+            decimal_sep: ".".into(),
+            ..bcc_profile()
+        };
+        let parsed = parse(&profile, 2, COMMA_FILE.as_bytes());
+        assert_eq!(parsed.problem, None);
+        assert_eq!(parsed.lines[0].amount_minor, Some(-7432));
+        assert_eq!(parsed.lines[0].date.as_deref(), Some("2026-11-23"));
     }
 }
