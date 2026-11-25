@@ -1,34 +1,34 @@
-import { useEffect, useState } from "react";
-import { errorMessage, spendableApi } from "@/shared/api";
-import { parseAmount, toAmountInput } from "@/shared/lib/money";
+import { useEffect, useState } from 'react'
+import { errorMessage, spendableApi } from '@/shared/api'
+import { parseAmount, toAmountInput } from '@/shared/lib/money'
 
 /** The Savings target: a fixed amount per Period, set aside from Spendable. */
 export default function SavingsTargetForm({ currency }: { currency: string }) {
-  const [amount, setAmount] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [amount, setAmount] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ error: boolean, text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     spendableApi.savingsTargetGet().then(
       (minor) => setAmount(toAmountInput(minor, currency)),
       (e) => setMessage({ error: true, text: errorMessage(e) }),
-    );
-  }, [currency]);
+    )
+  }, [currency])
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const parsed = parseAmount(amount ?? "", currency);
-    if (!parsed.ok) return setMessage({ error: true, text: parsed.error });
-    if (parsed.minor < 0) return setMessage({ error: true, text: "The Savings target can't be negative." });
-    setBusy(true);
+    e.preventDefault()
+    const parsed = parseAmount(amount ?? '', currency)
+    if (!parsed.ok) return setMessage({ error: true, text: parsed.error })
+    if (parsed.minor < 0) return setMessage({ error: true, text: 'The Savings target can\'t be negative.' })
+    setBusy(true)
     try {
-      await spendableApi.savingsTargetSet(parsed.minor);
-      setAmount(toAmountInput(parsed.minor, currency));
-      setMessage({ error: false, text: "Saved." });
+      await spendableApi.savingsTargetSet(parsed.minor)
+      setAmount(toAmountInput(parsed.minor, currency))
+      setMessage({ error: false, text: 'Saved.' })
     } catch (err) {
-      setMessage({ error: true, text: errorMessage(err) });
+      setMessage({ error: true, text: errorMessage(err) })
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
   }
 
@@ -49,7 +49,7 @@ export default function SavingsTargetForm({ currency }: { currency: string }) {
           </button>
         </form>
       )}
-      {message && <p className={message.error ? "error" : "muted"}>{message.text}</p>}
+      {message && <p className={message.error ? 'error' : 'muted'}>{message.text}</p>}
     </section>
-  );
+  )
 }

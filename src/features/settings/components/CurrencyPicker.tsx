@@ -1,37 +1,37 @@
-import { useMemo, useState } from "react";
-import { errorMessage } from "@/shared/api";
+import { useMemo, useState } from 'react'
+import { errorMessage } from '@/shared/api'
 
-const COMMON = ["EUR", "USD", "GBP", "CHF"];
+const COMMON = ['EUR', 'USD', 'GBP', 'CHF']
 
 function currencyName(code: string): string {
   try {
-    return new Intl.DisplayNames(undefined, { type: "currency" }).of(code) ?? code;
+    return new Intl.DisplayNames(undefined, { type: 'currency' }).of(code) ?? code
   } catch {
-    return code;
+    return code
   }
 }
 
-type Props = { initial: string; submitLabel: string; onSubmit: (code: string) => Promise<void> };
+type Props = { initial: string, submitLabel: string, onSubmit: (code: string) => Promise<void> }
 
 export default function CurrencyPicker({ initial, submitLabel, onSubmit }: Props) {
-  const [code, setCode] = useState(initial);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState(initial)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const all = useMemo(() => {
-    const supported = Intl.supportedValuesOf?.("currency") ?? [];
-    return [...COMMON, ...supported.filter((c) => !COMMON.includes(c))];
-  }, []);
+    const supported = Intl.supportedValuesOf?.('currency') ?? []
+    return [...COMMON, ...supported.filter((c) => !COMMON.includes(c))]
+  }, [])
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
     try {
-      await onSubmit(code);
+      await onSubmit(code)
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err))
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
   }
 
@@ -42,7 +42,10 @@ export default function CurrencyPicker({ initial, submitLabel, onSubmit }: Props
         <select value={code} onChange={(e) => setCode(e.target.value)}>
           {all.map((c) => (
             <option key={c} value={c}>
-              {c} · {currencyName(c)}
+              {c}
+              {' '}
+              ·
+              {currencyName(c)}
             </option>
           ))}
         </select>
@@ -52,5 +55,5 @@ export default function CurrencyPicker({ initial, submitLabel, onSubmit }: Props
       </button>
       {error && <p className="error">{error}</p>}
     </form>
-  );
+  )
 }

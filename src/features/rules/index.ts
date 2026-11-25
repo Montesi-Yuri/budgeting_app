@@ -1,1 +1,1 @@
-export { default as RulesPage } from "./components/RulesPage";
+export { default as RulesPage } from './components/RulesPage'

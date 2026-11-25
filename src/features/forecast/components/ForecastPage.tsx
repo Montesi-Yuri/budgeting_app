@@ -1,40 +1,40 @@
-import { useCallback, useEffect, useState } from "react";
-import { errorMessage, Forecast, forecastApi, ForecastPoint } from "@/shared/api";
-import { formatMinor } from "@/shared/lib/money";
-import { localToday, periodLabel } from "@/shared/lib/periods";
-import { useDataChanged, useWhenVisible } from "@/shared/hooks";
-import { confidenceText, netBars } from "../lib/forecast";
+import { useCallback, useEffect, useState } from 'react'
+import { errorMessage, Forecast, forecastApi, ForecastPoint } from '@/shared/api'
+import { formatMinor } from '@/shared/lib/money'
+import { localToday, periodLabel } from '@/shared/lib/periods'
+import { useDataChanged, useWhenVisible } from '@/shared/hooks'
+import { confidenceText, netBars } from '../lib/forecast'
 
 export default function ForecastPage({ currency }: { currency: string }) {
-  const [forecast, setForecast] = useState<Forecast | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [forecast, setForecast] = useState<Forecast | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(() => {
     forecastApi.get(localToday()).then(
       (f) => {
-        setForecast(f);
-        setError(null);
+        setForecast(f)
+        setError(null)
       },
       (e) => setError(errorMessage(e)),
-    );
-  }, []);
-  useEffect(reload, [reload]);
+    )
+  }, [])
+  useEffect(reload, [reload])
 
   // Recalculate on returning to the app and when a Sync applied changes.
-  useWhenVisible(reload);
-  useDataChanged(reload);
+  useWhenVisible(reload)
+  useDataChanged(reload)
 
-  const money = (minor: number, className = "amount") => (
+  const money = (minor: number, className = 'amount') => (
     <span className={minor < 0 ? `${className} negative` : className}>{formatMinor(minor, currency)}</span>
-  );
+  )
 
-  if (error) return <p className="error">{error}</p>;
-  if (!forecast) return <p className="muted">Loading…</p>;
+  if (error) return <p className="error">{error}</p>
+  if (!forecast) return <p className="muted">Loading…</p>
 
-  const lowConfidence = confidenceText(forecast.complete_periods);
-  const endOfPeriodLabel = `End of ${periodLabel(forecast.end_of_period.date.slice(0, 7))}`;
-  const endOfYearLabel = `End of ${forecast.end_of_year.date.slice(0, 4)}`;
-  const bars = netBars(forecast.months.map((m) => m.net_position_minor));
+  const lowConfidence = confidenceText(forecast.complete_periods)
+  const endOfPeriodLabel = `End of ${periodLabel(forecast.end_of_period.date.slice(0, 7))}`
+  const endOfYearLabel = `End of ${forecast.end_of_year.date.slice(0, 4)}`
+  const bars = netBars(forecast.months.map((m) => m.net_position_minor))
 
   const projection = (label: string, point: ForecastPoint) => (
     <div className="forecast-point">
@@ -42,23 +42,27 @@ export default function ForecastPage({ currency }: { currency: string }) {
       <div className="headline small-headline">{money(point.net_position_minor)}</div>
       {forecast.main_account_name && point.main_account_minor !== null && (
         <div className="muted small">
-          {forecast.main_account_name}: {money(point.main_account_minor)}
+          {forecast.main_account_name}
+          :
+          {money(point.main_account_minor)}
         </div>
       )}
     </div>
-  );
+  )
 
   return (
     <>
       <h1>Forecast</h1>
       {lowConfidence && (
         <p className="card low-confidence" role="status">
-          {lowConfidence} Everyday spending without a Budget is estimated from the history there is.
+          {lowConfidence}
+          {' '}
+          Everyday spending without a Budget is estimated from the history there is.
         </p>
       )}
 
       <section className="card forecast-points" aria-label="Projected Net position">
-        {projection("Net position today", forecast.today)}
+        {projection('Net position today', forecast.today)}
         {projection(endOfPeriodLabel, forecast.end_of_period)}
         {projection(endOfYearLabel, forecast.end_of_year)}
       </section>
@@ -81,7 +85,7 @@ export default function ForecastPage({ currency }: { currency: string }) {
                 <th scope="row">
                   {periodLabel(m.period)}
                   <div className="forecast-bar" aria-hidden="true">
-                    <span className={bars[i].negative ? "negative" : ""} style={{ width: `${bars[i].percent}%` }} />
+                    <span className={bars[i].negative ? 'negative' : ''} style={{ width: `${bars[i].percent}%` }} />
                   </div>
                 </th>
                 <td>{money(m.planned_minor)}</td>
@@ -99,38 +103,41 @@ export default function ForecastPage({ currency }: { currency: string }) {
 
       <section className="card">
         <h2>Everyday spending this Period</h2>
-        {forecast.everyday.length === 0 ? (
-          <p className="muted small">
-            No everyday spending expected yet. Add Budgets, or import a few Periods of Transactions.
-          </p>
-        ) : (
-          <table className="breakdown">
-            <thead>
-              <tr>
-                <th scope="col">Category</th>
-                <th scope="col">Per Period</th>
-                <th scope="col">Still expected</th>
-              </tr>
-            </thead>
-            <tbody>
-              {forecast.everyday.map((e) => (
-                <tr key={e.category_id ?? "uncategorised"}>
-                  <td>
-                    {e.name}{" "}
-                    <span className="badge muted-badge">{e.source === "budget" ? "Budget" : "average of last 3 Periods"}</span>
-                  </td>
-                  <td>{money(-e.per_period_minor)}</td>
-                  <td>{money(-e.left_this_period_minor)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        {forecast.everyday.length === 0
+          ? (
+              <p className="muted small">
+                No everyday spending expected yet. Add Budgets, or import a few Periods of Transactions.
+              </p>
+            )
+          : (
+              <table className="breakdown">
+                <thead>
+                  <tr>
+                    <th scope="col">Category</th>
+                    <th scope="col">Per Period</th>
+                    <th scope="col">Still expected</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {forecast.everyday.map((e) => (
+                    <tr key={e.category_id ?? 'uncategorised'}>
+                      <td>
+                        {e.name}
+                        {' '}
+                        <span className="badge muted-badge">{e.source === 'budget' ? 'Budget' : 'average of last 3 Periods'}</span>
+                      </td>
+                      <td>{money(-e.per_period_minor)}</td>
+                      <td>{money(-e.left_this_period_minor)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
         <p className="muted small">
           Categories with a Planned item are left out, so they aren't counted twice. In later Periods the whole amount is
           expected.
         </p>
       </section>
     </>
-  );
+  )
 }

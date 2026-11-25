@@ -1,19 +1,19 @@
-import { RestoreBackup } from "@/features/backup";
-import { CurrencyPicker } from "@/features/settings";
-import { PairWithPc } from "@/features/sync";
+import { RestoreBackup } from '@/features/backup'
+import { CurrencyPicker } from '@/features/settings'
+import { PairWithPc } from '@/features/sync'
 
 type Props = {
   /** The phone build: pairing with the PC comes first. */
-  mobile: boolean;
+  mobile: boolean
   /** Pairing or a restore brought the Currency (and all data) over. */
-  onReady: () => void;
-  onCurrencyChosen: (code: string) => Promise<void>;
-};
+  onReady: () => void
+  onCurrencyChosen: (code: string) => Promise<void>
+}
 
 /** First launch: no Currency yet. Choose one, pair with another Device, or restore a Backup. */
 export default function Welcome({ mobile, onReady, onCurrencyChosen }: Props) {
   return (
-    <main className={mobile ? "page narrow phone" : "page narrow"}>
+    <main className={mobile ? 'page narrow phone' : 'page narrow'}>
       <h1>Welcome</h1>
       {mobile && (
         <>
@@ -37,5 +37,5 @@ export default function Welcome({ mobile, onReady, onCurrencyChosen }: Props) {
       <p className="muted small">On a new installation, restore a Backup first to get all your data back.</p>
       <RestoreBackup onRestored={onReady} />
     </main>
-  );
+  )
 }

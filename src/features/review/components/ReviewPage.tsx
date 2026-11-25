@@ -1,51 +1,62 @@
-import { useEffect, useMemo, useState } from "react";
-import { errorMessage, ManualMatchView, ReviewList, TransactionView, TransferView, accountsApi, manualMatchesApi, reviewApi, transactionsApi, transfersApi } from "@/shared/api";
-import { formatMinor } from "@/shared/lib/money";
-import { localToday } from "@/shared/lib/periods";
-import { Money } from "@/shared/ui";
-import { linkCandidates, matchRows, sideText } from "../lib/review";
-import PlannedReview from "./PlannedReview";
+import { useEffect, useMemo, useState } from 'react'
+import { errorMessage, ManualMatchView, ReviewList, TransactionView, TransferView, accountsApi, manualMatchesApi, reviewApi, transactionsApi, transfersApi } from '@/shared/api'
+import { formatMinor } from '@/shared/lib/money'
+import { localToday } from '@/shared/lib/periods'
+import { Money } from '@/shared/ui'
+import { linkCandidates, matchRows, sideText } from '../lib/review'
+import PlannedReview from './PlannedReview'
 
-const ORIGIN_LABEL: Record<TransferView["origin"], string> = {
-  rule: "by a Rule",
-  match: "suggested",
-  user: "linked by hand",
-};
+const ORIGIN_LABEL: Record<TransferView['origin'], string> = {
+  rule: 'by a Rule',
+  match: 'suggested',
+  user: 'linked by hand',
+}
+
+type ReviewData = { review: ReviewList, transfers: TransferView[], transactions: TransactionView[] }
+
+async function fetchReviewData(): Promise<ReviewData> {
+  const [review, transfers, accounts] = await Promise.all([reviewApi.list(localToday()), transfersApi.list(), accountsApi.list()])
+  const lists = await Promise.all(accounts.map((a) => transactionsApi.list(a.id)))
+  return { review, transfers, transactions: lists.flat().sort((a, b) => b.date.localeCompare(a.date)) }
+}
 
 /** The review list (Suggestions to confirm or reject) and the Transfers. */
-export default function ReviewPage({ currency, onChanged }: { currency: string; onChanged: () => void }) {
-  const [review, setReview] = useState<ReviewList | null>(null);
-  const [transfers, setTransfers] = useState<TransferView[]>([]);
-  const [transactions, setTransactions] = useState<TransactionView[]>([]);
-  const [error, setError] = useState<string | null>(null);
+export default function ReviewPage({ currency, onChanged }: { currency: string, onChanged: () => void }) {
+  const [review, setReview] = useState<ReviewList | null>(null)
+  const [transfers, setTransfers] = useState<TransferView[]>([])
+  const [transactions, setTransactions] = useState<TransactionView[]>([])
+  const [error, setError] = useState<string | null>(null)
 
+  function show(data: ReviewData) {
+    setReview(data.review)
+    setTransfers(data.transfers)
+    setTransactions(data.transactions)
+    setError(null)
+  }
   async function load() {
     try {
-      const [r, t, accounts] = await Promise.all([reviewApi.list(localToday()), transfersApi.list(), accountsApi.list()]);
-      const lists = await Promise.all(accounts.map((a) => transactionsApi.list(a.id)));
-      setReview(r);
-      setTransfers(t);
-      setTransactions(lists.flat().sort((a, b) => b.date.localeCompare(a.date)));
-      setError(null);
+      show(await fetchReviewData())
     } catch (e) {
-      setError(errorMessage(e));
+      setError(errorMessage(e))
     }
   }
-  useEffect(() => void load(), []);
+  useEffect(() => {
+    fetchReviewData().then(show, (e) => setError(errorMessage(e)))
+  }, [])
 
   async function run(action: () => Promise<unknown>) {
     try {
-      await action();
-      onChanged();
-      await load();
+      await action()
+      onChanged()
+      await load()
     } catch (e) {
-      setError(errorMessage(e));
+      setError(errorMessage(e))
     }
   }
 
-  const suggestions = review?.items.filter((i) => i.kind === "transfer_suggestion") ?? [];
-  const missing = review?.items.filter((i) => i.kind === "transfer_missing_side") ?? [];
-  const matches = review?.items.flatMap((i) => (i.kind === "manual_match_suggestion" ? [i.manual_match] : [])) ?? [];
+  const suggestions = review?.items.filter((i) => i.kind === 'transfer_suggestion') ?? []
+  const missing = review?.items.filter((i) => i.kind === 'transfer_missing_side') ?? []
+  const matches = review?.items.flatMap((i) => (i.kind === 'manual_match_suggestion' ? [i.manual_match] : [])) ?? []
 
   return (
     <>
@@ -129,7 +140,7 @@ export default function ReviewPage({ currency, onChanged }: { currency: string; 
             <li key={t.id} className="row-item">
               <TransferSides transfer={t} currency={currency} />
               <span className="muted small">
-                {t.status === "suggested" ? "to review" : ORIGIN_LABEL[t.origin]}
+                {t.status === 'suggested' ? 'to review' : ORIGIN_LABEL[t.origin]}
               </span>
               <span className="actions">
                 <button onClick={() => run(() => transfersApi.reject(t.id))}>Unlink</button>
@@ -139,11 +150,11 @@ export default function ReviewPage({ currency, onChanged }: { currency: string; 
         </ul>
       </section>
     </>
-  );
+  )
 }
 
-function MatchComparison({ match, currency }: { match: ManualMatchView; currency: string }) {
-  const rows = matchRows(match.manual_txn, match.imported_txn, (minor) => formatMinor(minor, currency));
+function MatchComparison({ match, currency }: { match: ManualMatchView, currency: string }) {
+  const rows = matchRows(match.manual_txn, match.imported_txn, (minor) => formatMinor(minor, currency))
   return (
     <table className="grow compare">
       <caption className="name">{match.imported_txn.account_name}</caption>
@@ -166,48 +177,55 @@ function MatchComparison({ match, currency }: { match: ManualMatchView; currency
         ))}
       </tbody>
     </table>
-  );
+  )
 }
 
-function TransferSides({ transfer, currency }: { transfer: TransferView; currency: string }) {
-  const amount = transfer.out_txn ? -transfer.out_txn.amount_minor : (transfer.in_txn?.amount_minor ?? 0);
+function TransferSides({ transfer, currency }: { transfer: TransferView, currency: string }) {
+  const amount = transfer.out_txn ? -transfer.out_txn.amount_minor : (transfer.in_txn?.amount_minor ?? 0)
   return (
     <span className="grow">
-      <span className="name">From: {sideText(transfer.out_txn)}</span>
+      <span className="name">
+        From:
+        {sideText(transfer.out_txn)}
+      </span>
       <br />
-      <span className="name">To: {sideText(transfer.in_txn)}</span>{" "}
+      <span className="name">
+        To:
+        {sideText(transfer.in_txn)}
+      </span>
+      {' '}
       <Money minor={amount} currency={currency} />
     </span>
-  );
+  )
 }
 
 type LinkProps = {
-  currency: string;
-  transactions: TransactionView[];
-  transfers: TransferView[];
-  onLink: (a: string, b: string) => void;
-};
+  currency: string
+  transactions: TransactionView[]
+  transfers: TransferView[]
+  onLink: (a: string, b: string) => void
+}
 
 function LinkForm({ currency, transactions, transfers, onLink }: LinkProps) {
-  const [firstId, setFirstId] = useState("");
-  const [secondId, setSecondId] = useState("");
-  const first = transactions.find((t) => t.id === firstId) ?? null;
+  const [firstId, setFirstId] = useState('')
+  const [secondId, setSecondId] = useState('')
+  const first = transactions.find((t) => t.id === firstId) ?? null
   // Any Transaction not yet in a Transfer with both sides can start a link.
   const linkable = useMemo(() => {
     const paired = new Set(
       transfers.filter((t) => t.out_txn_id && t.in_txn_id).flatMap((t) => [t.out_txn_id, t.in_txn_id]),
-    );
-    return transactions.filter((t) => !paired.has(t.id));
-  }, [transactions, transfers]);
-  const candidates = first ? linkCandidates(first, transactions, transfers) : [];
-  const label = (t: TransactionView) => `${sideText(t)} · ${formatMinor(t.amount_minor, currency)}`;
+    )
+    return transactions.filter((t) => !paired.has(t.id))
+  }, [transactions, transfers])
+  const candidates = first ? linkCandidates(first, transactions, transfers) : []
+  const label = (t: TransactionView) => `${sideText(t)} · ${formatMinor(t.amount_minor, currency)}`
 
   function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!firstId || !secondId) return;
-    onLink(firstId, secondId);
-    setFirstId("");
-    setSecondId("");
+    e.preventDefault()
+    if (!firstId || !secondId) return
+    onLink(firstId, secondId)
+    setFirstId('')
+    setSecondId('')
   }
 
   return (
@@ -218,8 +236,8 @@ function LinkForm({ currency, transactions, transfers, onLink }: LinkProps) {
         <select
           value={firstId}
           onChange={(e) => {
-            setFirstId(e.target.value);
-            setSecondId("");
+            setFirstId(e.target.value)
+            setSecondId('')
           }}
         >
           <option value="">Choose a Transaction</option>
@@ -247,5 +265,5 @@ function LinkForm({ currency, transactions, transfers, onLink }: LinkProps) {
         </button>
       </div>
     </form>
-  );
+  )
 }

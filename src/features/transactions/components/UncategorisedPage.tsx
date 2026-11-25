@@ -1,34 +1,34 @@
-import { useCallback, useEffect, useState } from "react";
-import { Category, errorMessage, TransactionView, categoriesApi, transactionsApi } from "@/shared/api";
-import { CategorySelect } from "@/features/categories";
-import TransactionSummary from "./TransactionSummary";
+import { useCallback, useEffect, useState } from 'react'
+import { Category, errorMessage, TransactionView, categoriesApi, transactionsApi } from '@/shared/api'
+import { CategorySelect } from '@/features/categories'
+import TransactionSummary from './TransactionSummary'
 
 /** Every Transaction without a Category, on any Account; pick a Category to assign it. */
 export default function UncategorisedPage({ currency }: { currency: string }) {
-  const [transactions, setTransactions] = useState<TransactionView[] | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<TransactionView[] | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(() => {
-    transactionsApi.uncategorised().then(setTransactions, (e) => setError(errorMessage(e)));
-  }, []);
+    transactionsApi.uncategorised().then(setTransactions, (e) => setError(errorMessage(e)))
+  }, [])
   useEffect(() => {
-    reload();
-    categoriesApi.list().then(setCategories, (e) => setError(errorMessage(e)));
-  }, [reload]);
+    reload()
+    categoriesApi.list().then(setCategories, (e) => setError(errorMessage(e)))
+  }, [reload])
 
   async function assign(id: string, categoryId: string | null) {
-    if (!categoryId) return;
-    setBusy(id);
-    setError(null);
+    if (!categoryId) return
+    setBusy(id)
+    setError(null)
     try {
-      await transactionsApi.setCategory(id, categoryId);
-      reload();
+      await transactionsApi.setCategory(id, categoryId)
+      reload()
     } catch (e) {
-      setError(errorMessage(e));
+      setError(errorMessage(e))
     } finally {
-      setBusy(null);
+      setBusy(null)
     }
   }
 
@@ -58,5 +58,5 @@ export default function UncategorisedPage({ currency }: { currency: string }) {
         </ul>
       )}
     </>
-  );
+  )
 }

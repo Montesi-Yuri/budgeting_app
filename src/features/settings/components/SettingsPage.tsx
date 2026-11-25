@@ -1,23 +1,23 @@
-import { useEffect, useState } from "react";
-import { AppInfo, settingsApi } from "@/shared/api";
-import { BackupSettings } from "@/features/backup";
-import CurrencyPicker from "./CurrencyPicker";
-import SavingsTargetForm from "./SavingsTargetForm";
-import { SyncSettings } from "@/features/sync";
+import { useEffect, useState } from 'react'
+import { AppInfo, settingsApi } from '@/shared/api'
+import { BackupSettings } from '@/features/backup'
+import CurrencyPicker from './CurrencyPicker'
+import SavingsTargetForm from './SavingsTargetForm'
+import { SyncSettings } from '@/features/sync'
 
 type Props = {
-  currency: string;
-  onCurrencyChange: (code: string) => Promise<void>;
+  currency: string
+  onCurrencyChange: (code: string) => Promise<void>
   /** After a Backup is restored, data shown elsewhere may have changed. */
-  onRestored?: () => void;
-};
+  onRestored?: () => void
+}
 
 export default function SettingsPage({ currency, onCurrencyChange, onRestored }: Props) {
-  const [info, setInfo] = useState<AppInfo | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [info, setInfo] = useState<AppInfo | null>(null)
+  const [saved, setSaved] = useState(false)
   useEffect(() => {
-    settingsApi.appInfo().then(setInfo, () => setInfo(null));
-  }, []);
+    settingsApi.appInfo().then(setInfo, () => setInfo(null))
+  }, [])
 
   return (
     <>
@@ -32,8 +32,8 @@ export default function SettingsPage({ currency, onCurrencyChange, onRestored }:
           initial={currency}
           submitLabel="Save"
           onSubmit={async (code) => {
-            await onCurrencyChange(code);
-            setSaved(true);
+            await onCurrencyChange(code)
+            setSaved(true)
           }}
         />
         {saved && <p className="muted">Saved.</p>}
@@ -45,10 +45,16 @@ export default function SettingsPage({ currency, onCurrencyChange, onRestored }:
         <section className="card">
           <h2>This Device</h2>
           <p className="muted small">
-            Device id <code>{info.device_id}</code> · schema {info.schema_version}
+            Device id
+            {' '}
+            <code>{info.device_id}</code>
+            {' '}
+            · schema
+            {' '}
+            {info.schema_version}
           </p>
         </section>
       )}
     </>
-  );
+  )
 }

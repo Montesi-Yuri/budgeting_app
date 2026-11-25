@@ -1,52 +1,52 @@
-import { useCallback, useEffect, useState } from "react";
-import { AccountWithBalance, Category, errorMessage, NewPlannedItem, PlannedItem, plannedApi, Schedule, accountsApi, categoriesApi } from "@/shared/api";
-import { formatMinor, parseAmount, toAmountInput } from "@/shared/lib/money";
-import { localToday } from "@/shared/lib/periods";
-import { useAction } from "@/shared/hooks";
-import { categoryChoices } from "@/features/categories";
-import { lessOftenThanMonthly, scheduleLabel, signedAmount } from "../lib/planned";
+import { useCallback, useEffect, useState } from 'react'
+import { AccountWithBalance, Category, errorMessage, NewPlannedItem, PlannedItem, plannedApi, Schedule, accountsApi, categoriesApi } from '@/shared/api'
+import { formatMinor, parseAmount, toAmountInput } from '@/shared/lib/money'
+import { localToday } from '@/shared/lib/periods'
+import { useAction } from '@/shared/hooks'
+import { categoryChoices } from '@/features/categories'
+import { lessOftenThanMonthly, scheduleLabel, signedAmount } from '../lib/planned'
 
-type Editing = { item: PlannedItem | null } | null;
+type Editing = { item: PlannedItem | null } | null
 
 /** Planned items: Income or Expenses expected on a schedule. */
 export default function PlannedItemsPage({ currency }: { currency: string }) {
-  const [items, setItems] = useState<PlannedItem[] | null>(null);
-  const [accounts, setAccounts] = useState<AccountWithBalance[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [editing, setEditing] = useState<Editing>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<PlannedItem[] | null>(null)
+  const [accounts, setAccounts] = useState<AccountWithBalance[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [editing, setEditing] = useState<Editing>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(() => {
     Promise.all([plannedApi.list(), accountsApi.list(), categoriesApi.list()]).then(([i, a, c]) => {
-      setItems(i);
-      setAccounts(a);
-      setCategories(c);
-    }, (e) => setError(errorMessage(e)));
-  }, []);
-  useEffect(reload, [reload]);
+      setItems(i)
+      setAccounts(a)
+      setCategories(c)
+    }, (e) => setError(errorMessage(e)))
+  }, [])
+  useEffect(reload, [reload])
 
-  const run = useAction(reload, setError);
+  const run = useAction(reload, setError)
 
-  const today = localToday();
-  const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? "Deleted Account";
-  const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? "Deleted Category";
+  const today = localToday()
+  const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? 'Deleted Account'
+  const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Deleted Category'
   const money = (minor: number) => (
-    <span className={minor < 0 ? "amount negative" : "amount"}>{formatMinor(minor, currency)}</span>
-  );
+    <span className={minor < 0 ? 'amount negative' : 'amount'}>{formatMinor(minor, currency)}</span>
+  )
 
   function end(item: PlannedItem) {
     if (window.confirm(`End "${item.description}"? Today is the last day it can occur.`)) {
-      run(() => plannedApi.end(item.id, today));
+      run(() => plannedApi.end(item.id, today))
     }
   }
 
   function remove(item: PlannedItem) {
     if (window.confirm(`Delete "${item.description}"? To keep its past occurrences, end it instead.`)) {
-      run(() => plannedApi.delete(item.id));
+      run(() => plannedApi.delete(item.id))
     }
   }
 
-  const canAdd = accounts.length > 0 && categories.length > 0;
+  const canAdd = accounts.length > 0 && categories.length > 0
 
   return (
     <>
@@ -75,9 +75,8 @@ export default function PlannedItemsPage({ currency }: { currency: string }) {
             const ok = await run(() =>
               editing.item
                 ? plannedApi.update({ ...fields, id: editing.item.id, set_aside: fields.set_aside ?? false })
-                : plannedApi.create(fields),
-            );
-            if (ok) setEditing(null);
+                : plannedApi.create(fields))
+            if (ok) setEditing(null)
           }}
           onCancel={() => setEditing(null)}
         />
@@ -85,25 +84,41 @@ export default function PlannedItemsPage({ currency }: { currency: string }) {
 
       {items && items.length === 0 && !editing && (
         <p className="muted">
-          {canAdd ? "No Planned items yet." : "Add an Account and a Category first, then you can plan Income and Expenses."}
+          {canAdd ? 'No Planned items yet.' : 'Add an Account and a Category first, then you can plan Income and Expenses.'}
         </p>
       )}
 
       {items && items.length > 0 && (
         <ul className="list">
           {items.map((item) => {
-            const ended = item.end_date !== null && item.end_date < today;
+            const ended = item.end_date !== null && item.end_date < today
             return (
               <li key={item.id} className="row-item">
                 <span className="grow">
-                  <span className="name">{item.description}</span>{" "}
-                  {item.set_aside && <span className="badge muted-badge">Set-aside</span>}{" "}
-                  {ended && <span className="badge muted-badge">Ended {item.end_date}</span>}
+                  <span className="name">{item.description}</span>
+                  {' '}
+                  {item.set_aside && <span className="badge muted-badge">Set-aside</span>}
+                  {' '}
+                  {ended && (
+                    <span className="badge muted-badge">
+                      Ended
+                      {item.end_date}
+                    </span>
+                  )}
                   <br />
                   <span className="muted small">
-                    {scheduleLabel(item.schedule)} · {categoryName(item.category_id)} · {accountName(item.account_id)} ·
-                    from {item.start_date}
-                    {item.end_date && !ended ? ` to ${item.end_date}` : ""}
+                    {scheduleLabel(item.schedule)}
+                    {' '}
+                    ·
+                    {categoryName(item.category_id)}
+                    {' '}
+                    ·
+                    {accountName(item.account_id)}
+                    {' '}
+                    ·
+                    from
+                    {item.start_date}
+                    {item.end_date && !ended ? ` to ${item.end_date}` : ''}
                   </span>
                 </span>
                 {money(item.amount_minor)}
@@ -115,61 +130,61 @@ export default function PlannedItemsPage({ currency }: { currency: string }) {
                   </button>
                 </span>
               </li>
-            );
+            )
           })}
         </ul>
       )}
     </>
-  );
+  )
 }
 
-type Repeat = "monthly" | "every_n_months" | "yearly";
+type Repeat = 'monthly' | 'every_n_months' | 'yearly'
 
 type FormProps = {
-  currency: string;
-  accounts: AccountWithBalance[];
-  categories: Category[];
-  item: PlannedItem | null;
-  onSubmit: (fields: NewPlannedItem) => void;
-  onCancel: () => void;
-};
+  currency: string
+  accounts: AccountWithBalance[]
+  categories: Category[]
+  item: PlannedItem | null
+  onSubmit: (fields: NewPlannedItem) => void
+  onCancel: () => void
+}
 
 function PlannedItemForm({ currency, accounts, categories, item, onSubmit, onCancel }: FormProps) {
-  const groups = categoryChoices(categories);
-  const known = item !== null && categories.some((c) => c.id === item.category_id);
-  const s = item?.schedule;
-  const [accountId, setAccountId] = useState(item?.account_id ?? accounts[0]?.id ?? "");
-  const [categoryId, setCategoryId] = useState(known ? item.category_id : (groups[0]?.options[0]?.id ?? ""));
-  const [description, setDescription] = useState(item?.description ?? "");
-  const [amount, setAmount] = useState(item ? toAmountInput(Math.abs(item.amount_minor), currency) : "");
+  const groups = categoryChoices(categories)
+  const known = item !== null && categories.some((c) => c.id === item.category_id)
+  const s = item?.schedule
+  const [accountId, setAccountId] = useState(item?.account_id ?? accounts[0]?.id ?? '')
+  const [categoryId, setCategoryId] = useState(known ? item.category_id : (groups[0]?.options[0]?.id ?? ''))
+  const [description, setDescription] = useState(item?.description ?? '')
+  const [amount, setAmount] = useState(item ? toAmountInput(Math.abs(item.amount_minor), currency) : '')
   const [repeat, setRepeat] = useState<Repeat>(
-    s?.kind === "yearly" ? "yearly" : s && s.every_months > 1 ? "every_n_months" : "monthly",
-  );
-  const [day, setDay] = useState(String(s?.day ?? 1));
-  const [everyMonths, setEveryMonths] = useState(String(s?.kind === "monthly" && s.every_months > 1 ? s.every_months : 3));
-  const [month, setMonth] = useState(String(s?.kind === "yearly" ? s.month : 1));
-  const [startDate, setStartDate] = useState(item?.start_date ?? localToday());
-  const [endDate, setEndDate] = useState(item?.end_date ?? "");
+    s?.kind === 'yearly' ? 'yearly' : s && s.every_months > 1 ? 'every_n_months' : 'monthly',
+  )
+  const [day, setDay] = useState(String(s?.day ?? 1))
+  const [everyMonths, setEveryMonths] = useState(String(s?.kind === 'monthly' && s.every_months > 1 ? s.every_months : 3))
+  const [month, setMonth] = useState(String(s?.kind === 'yearly' ? s.month : 1))
+  const [startDate, setStartDate] = useState(item?.start_date ?? localToday())
+  const [endDate, setEndDate] = useState(item?.end_date ?? '')
   // null = follow the schedule's default until the user ticks or unticks it.
-  const [setAside, setSetAside] = useState<boolean | null>(item ? item.set_aside : null);
-  const [error, setError] = useState<string | null>(null);
+  const [setAside, setSetAside] = useState<boolean | null>(item ? item.set_aside : null)
+  const [error, setError] = useState<string | null>(null)
 
-  const schedule: Schedule =
-    repeat === "yearly"
-      ? { kind: "yearly", month: Number(month), day: Number(day) }
-      : { kind: "monthly", day: Number(day), every_months: repeat === "monthly" ? 1 : Number(everyMonths) };
-  const spreadable = lessOftenThanMonthly(schedule);
-  const spread = spreadable && (setAside ?? true);
+  const schedule: Schedule
+    = repeat === 'yearly'
+      ? { kind: 'yearly', month: Number(month), day: Number(day) }
+      : { kind: 'monthly', day: Number(day), every_months: repeat === 'monthly' ? 1 : Number(everyMonths) }
+  const spreadable = lessOftenThanMonthly(schedule)
+  const spread = spreadable && (setAside ?? true)
 
   function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const parsed = parseAmount(amount, currency);
+    e.preventDefault()
+    const parsed = parseAmount(amount, currency)
     if (!parsed.ok) {
-      setError(`Amount: ${parsed.error}`);
-      return;
+      setError(`Amount: ${parsed.error}`)
+      return
     }
-    const kind = categories.find((c) => c.id === categoryId)?.kind ?? "expense";
-    setError(null);
+    const kind = categories.find((c) => c.id === categoryId)?.kind ?? 'expense'
+    setError(null)
     onSubmit({
       account_id: accountId,
       category_id: categoryId,
@@ -179,23 +194,26 @@ function PlannedItemForm({ currency, accounts, categories, item, onSubmit, onCan
       start_date: startDate,
       end_date: endDate || null,
       set_aside: spreadable ? (item || setAside !== null ? spread : null) : false,
-    });
+    })
   }
 
   const monthNames = Array.from({ length: 12 }, (_, i) =>
-    new Intl.DateTimeFormat(undefined, { month: "long" }).format(new Date(2024, i, 1)),
-  );
+    new Intl.DateTimeFormat(undefined, { month: 'long' }).format(new Date(2024, i, 1)))
 
   return (
     <form className="card form" onSubmit={submit}>
-      <h2>{item ? "Edit Planned item" : "New Planned item"}</h2>
+      <h2>{item ? 'Edit Planned item' : 'New Planned item'}</h2>
       <div className="row">
         <label className="field">
           <span>Description</span>
           <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Salary" autoFocus />
         </label>
         <label className="field">
-          <span>Amount ({currency})</span>
+          <span>
+            Amount (
+            {currency}
+            )
+          </span>
           <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="600.00" />
         </label>
       </div>
@@ -238,13 +256,13 @@ function PlannedItemForm({ currency, accounts, categories, item, onSubmit, onCan
             <option value="yearly">Yearly on a date</option>
           </select>
         </label>
-        {repeat === "every_n_months" && (
+        {repeat === 'every_n_months' && (
           <label className="field">
             <span>Every (months)</span>
             <input type="number" min={2} max={120} value={everyMonths} onChange={(e) => setEveryMonths(e.target.value)} />
           </label>
         )}
-        {repeat === "yearly" && (
+        {repeat === 'yearly' && (
           <label className="field">
             <span>Month</span>
             <select value={month} onChange={(e) => setMonth(e.target.value)}>
@@ -271,7 +289,7 @@ function PlannedItemForm({ currency, accounts, categories, item, onSubmit, onCan
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </label>
       </div>
-      {repeat === "every_n_months" && (
+      {repeat === 'every_n_months' && (
         <p className="muted small">Counted from the month of the start date.</p>
       )}
       {spreadable && (
@@ -284,12 +302,12 @@ function PlannedItemForm({ currency, accounts, categories, item, onSubmit, onCan
       {error && <p className="error">{error}</p>}
       <div className="actions">
         <button type="submit" className="primary">
-          {item ? "Save" : "Add Planned item"}
+          {item ? 'Save' : 'Add Planned item'}
         </button>
         <button type="button" onClick={onCancel}>
           Cancel
         </button>
       </div>
     </form>
-  );
+  )
 }

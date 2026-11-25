@@ -1,82 +1,82 @@
-import { useState } from "react";
-import { AccountWithBalance, Category, errorMessage, Transaction, transactionsApi } from "@/shared/api";
-import { parseAmount, toAmountInput } from "@/shared/lib/money";
-import { CategorySelect } from "@/features/categories";
+import { useState } from 'react'
+import { AccountWithBalance, Category, errorMessage, Transaction, transactionsApi } from '@/shared/api'
+import { parseAmount, toAmountInput } from '@/shared/lib/money'
+import { CategorySelect } from '@/features/categories'
 
 type Props = {
-  currency: string;
-  accounts: AccountWithBalance[];
-  categories: Category[];
+  currency: string
+  accounts: AccountWithBalance[]
+  categories: Category[]
   /** The Account preselected for a new Transaction. */
-  accountId: string;
+  accountId: string
   /** null = add a new Manual Transaction */
-  transaction: Transaction | null;
-  onDone: () => void;
-  onCancel: () => void;
+  transaction: Transaction | null
+  onDone: () => void
+  onCancel: () => void
   /** Shown as a Delete button when editing; a rejection is shown in the form. */
-  onDelete?: () => Promise<void>;
-};
+  onDelete?: () => Promise<void>
+}
 
-const today = () => new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD in local time
+const today = () => new Date().toLocaleDateString('sv-SE') // YYYY-MM-DD in local time
 
 export default function TransactionForm({ currency, accounts, categories, accountId, transaction, onDone, onCancel, onDelete }: Props) {
-  const [account, setAccount] = useState(transaction?.account_id ?? accountId);
-  const [date, setDate] = useState(transaction?.date ?? today());
-  const [amount, setAmount] = useState(transaction ? toAmountInput(transaction.amount_minor, currency) : "");
-  const [description, setDescription] = useState(transaction?.description ?? "");
-  const [categoryId, setCategoryId] = useState<string | null>(transaction?.category_id ?? null);
-  const [note, setNote] = useState(transaction?.note ?? "");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [account, setAccount] = useState(transaction?.account_id ?? accountId)
+  const [date, setDate] = useState(transaction?.date ?? today())
+  const [amount, setAmount] = useState(transaction ? toAmountInput(transaction.amount_minor, currency) : '')
+  const [description, setDescription] = useState(transaction?.description ?? '')
+  const [categoryId, setCategoryId] = useState<string | null>(transaction?.category_id ?? null)
+  const [note, setNote] = useState(transaction?.note ?? '')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const parsed = parseAmount(amount, currency);
+    e.preventDefault()
+    const parsed = parseAmount(amount, currency)
     if (!parsed.ok) {
-      setError(`Amount: ${parsed.error}`);
-      return;
+      setError(`Amount: ${parsed.error}`)
+      return
     }
     // Keep a Category that was deleted elsewhere unless the user picked another one.
-    const keptCategory =
-      transaction && categoryId === null && !categories.some((c) => c.id === transaction.category_id)
+    const keptCategory
+      = transaction && categoryId === null && !categories.some((c) => c.id === transaction.category_id)
         ? transaction.category_id
-        : categoryId;
+        : categoryId
     const fields = {
       account_id: account,
       date,
       amount_minor: parsed.minor,
       description,
       category_id: keptCategory,
-      note: note.trim() === "" ? null : note,
-    };
-    setBusy(true);
-    setError(null);
+      note: note.trim() === '' ? null : note,
+    }
+    setBusy(true)
+    setError(null)
     try {
-      if (transaction) await transactionsApi.update({ ...fields, id: transaction.id });
-      else await transactionsApi.create(fields);
-      onDone();
+      if (transaction) await transactionsApi.update({ ...fields, id: transaction.id })
+      else await transactionsApi.create(fields)
+      onDone()
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err))
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
   }
 
   async function remove(onDelete: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
+    setBusy(true)
+    setError(null)
     try {
-      await onDelete();
+      await onDelete()
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err))
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
   }
 
   return (
     <form className="card form" onSubmit={submit}>
-      <h2>{transaction ? "Edit Transaction" : "New Manual Transaction"}</h2>
+      <h2>{transaction ? 'Edit Transaction' : 'New Manual Transaction'}</h2>
       <label className="field">
         <span>Account</span>
         <select value={account} onChange={(e) => setAccount(e.target.value)}>
@@ -93,7 +93,11 @@ export default function TransactionForm({ currency, accounts, categories, accoun
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
         <label className="field">
-          <span>Amount ({currency})</span>
+          <span>
+            Amount (
+            {currency}
+            )
+          </span>
           <input
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
@@ -124,12 +128,12 @@ export default function TransactionForm({ currency, accounts, categories, accoun
           </button>
         )}
         <button type="submit" className="primary" disabled={busy}>
-          {transaction ? "Save" : "Add Transaction"}
+          {transaction ? 'Save' : 'Add Transaction'}
         </button>
         <button type="button" onClick={onCancel}>
           Cancel
         </button>
       </div>
     </form>
-  );
+  )
 }

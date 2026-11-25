@@ -1,1 +1,1 @@
-export { default as BudgetsPage } from "./components/BudgetsPage";
+export { default as BudgetsPage } from './components/BudgetsPage'

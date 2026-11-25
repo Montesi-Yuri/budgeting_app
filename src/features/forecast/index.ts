@@ -1,1 +1,1 @@
-export { default as ForecastPage } from "./components/ForecastPage";
+export { default as ForecastPage } from './components/ForecastPage'

@@ -1,1 +1,1 @@
-export { default as ImportPage } from "./components/ImportPage";
+export { default as ImportPage } from './components/ImportPage'

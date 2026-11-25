@@ -6,5 +6,5 @@ export default function PairingQr({ svg }: { svg: string }) {
       alt="Pairing QR code: scan it with the phone"
       src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`}
     />
-  );
+  )
 }

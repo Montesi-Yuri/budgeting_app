@@ -1,39 +1,39 @@
-import { useEffect, useState } from "react";
-import { errorMessage, Fulfilment, fulfilmentApi, Occurrence, plannedApi, ReviewList, TransactionView } from "@/shared/api";
-import { formatMinor } from "@/shared/lib/money";
-import { localToday, periodOf } from "@/shared/lib/periods";
-import { Money } from "@/shared/ui";
-import { fulfilmentCandidates, linkableOccurrences } from "../lib/fulfilment";
-import { sideText } from "../lib/review";
+import { useEffect, useState } from 'react'
+import { errorMessage, Fulfilment, fulfilmentApi, Occurrence, plannedApi, ReviewList, TransactionView } from '@/shared/api'
+import { formatMinor } from '@/shared/lib/money'
+import { localToday, periodOf } from '@/shared/lib/periods'
+import { Money } from '@/shared/ui'
+import { fulfilmentCandidates, linkableOccurrences } from '../lib/fulfilment'
+import { sideText } from '../lib/review'
 
 type Props = {
-  currency: string;
-  review: ReviewList | null;
-  transactions: TransactionView[];
+  currency: string
+  review: ReviewList | null
+  transactions: TransactionView[]
   /** Run a change, then refresh the review list. */
-  run: (action: () => Promise<unknown>) => void;
-};
+  run: (action: () => Promise<unknown>) => void
+}
 
 /** The Planned item parts of the review list: fulfilments and occurrences still expected. */
 export default function PlannedReview({ currency, review, transactions, run }: Props) {
-  const [fulfilments, setFulfilments] = useState<Fulfilment[]>([]);
-  const [thisPeriod, setThisPeriod] = useState<Occurrence[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [fulfilments, setFulfilments] = useState<Fulfilment[]>([])
+  const [thisPeriod, setThisPeriod] = useState<Occurrence[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   // Reloaded whenever the review list is (after every decision).
   useEffect(() => {
     Promise.all([fulfilmentApi.list(), plannedApi.periodGet(periodOf(localToday()))]).then(
       ([f, plan]) => {
-        setFulfilments(f);
-        setThisPeriod(plan.occurrences);
-        setError(null);
+        setFulfilments(f)
+        setThisPeriod(plan.occurrences)
+        setError(null)
       },
       (e) => setError(errorMessage(e)),
-    );
-  }, [review]);
+    )
+  }, [review])
 
-  const suggestions = review?.items.flatMap((i) => (i.kind === "fulfilment_suggestion" ? [i.fulfilment] : [])) ?? [];
-  const overdue = review?.items.flatMap((i) => (i.kind === "still_expected" ? [i.occurrence] : [])) ?? [];
+  const suggestions = review?.items.flatMap((i) => (i.kind === 'fulfilment_suggestion' ? [i.fulfilment] : [])) ?? []
+  const overdue = review?.items.flatMap((i) => (i.kind === 'still_expected' ? [i.occurrence] : [])) ?? []
 
   return (
     <>
@@ -86,7 +86,7 @@ export default function PlannedReview({ currency, review, transactions, run }: P
             {fulfilments.map((f) => (
               <li key={f.id} className="row-item">
                 <FulfilmentText fulfilment={f} currency={currency} />
-                <span className="muted small">{f.status === "suggested" ? "to review" : "confirmed"}</span>
+                <span className="muted small">{f.status === 'suggested' ? 'to review' : 'confirmed'}</span>
                 <span className="actions">
                   <button onClick={() => run(() => fulfilmentApi.unlink(f.id))}>Unlink</button>
                 </span>
@@ -96,33 +96,44 @@ export default function PlannedReview({ currency, review, transactions, run }: P
         </section>
       )}
     </>
-  );
+  )
 }
 
-function FulfilmentText({ fulfilment, currency }: { fulfilment: Fulfilment; currency: string }) {
+function FulfilmentText({ fulfilment, currency }: { fulfilment: Fulfilment, currency: string }) {
   return (
     <span className="grow">
       <span className="name">
-        {fulfilment.description}, due {fulfilment.due_date}: planned{" "}
+        {fulfilment.description}
+        , due
+        {fulfilment.due_date}
+        : planned
+        {' '}
         {formatMinor(fulfilment.planned_amount_minor, currency)}
       </span>
       <br />
-      <span className="name">Arrived: {sideText(fulfilment.transaction)}</span>{" "}
+      <span className="name">
+        Arrived:
+        {sideText(fulfilment.transaction)}
+      </span>
+      {' '}
       <Money minor={fulfilment.transaction.amount_minor} currency={currency} />
     </span>
-  );
+  )
 }
 
-function StillExpected({ occurrence, currency, run }: { occurrence: Occurrence; currency: string } & Pick<Props, "run">) {
-  const [newDate, setNewDate] = useState(localToday());
-  const moved = occurrence.due_date !== occurrence.scheduled_date;
+function StillExpected({ occurrence, currency, run }: { occurrence: Occurrence, currency: string } & Pick<Props, 'run'>) {
+  const [newDate, setNewDate] = useState(localToday())
+  const moved = occurrence.due_date !== occurrence.scheduled_date
   return (
     <li className="row-item">
       <span className="grow">
         <span className="name">
-          {occurrence.description}, expected {occurrence.due_date}
+          {occurrence.description}
+          , expected
+          {occurrence.due_date}
           {moved && ` (moved from ${occurrence.scheduled_date})`}
-        </span>{" "}
+        </span>
+        {' '}
         <Money minor={occurrence.amount_minor} currency={currency} />
       </span>
       <span className="actions">
@@ -133,36 +144,35 @@ function StillExpected({ occurrence, currency, run }: { occurrence: Occurrence; 
         <button
           disabled={!newDate}
           onClick={() =>
-            run(() => fulfilmentApi.arrivesLater(occurrence.planned_item_id, occurrence.scheduled_date, newDate))
-          }
+            run(() => fulfilmentApi.arrivesLater(occurrence.planned_item_id, occurrence.scheduled_date, newDate))}
         >
           Arrives later
         </button>
       </span>
     </li>
-  );
+  )
 }
 
 type LinkProps = {
-  currency: string;
-  occurrences: Occurrence[];
-  transactions: TransactionView[];
-  fulfilments: Fulfilment[];
-  onLink: (occurrence: Occurrence, txnId: string) => void;
-};
+  currency: string
+  occurrences: Occurrence[]
+  transactions: TransactionView[]
+  fulfilments: Fulfilment[]
+  onLink: (occurrence: Occurrence, txnId: string) => void
+}
 
 function LinkForm({ currency, occurrences, transactions, fulfilments, onLink }: LinkProps) {
-  const [occurrenceId, setOccurrenceId] = useState("");
-  const [txnId, setTxnId] = useState("");
-  const chosen = occurrences.find((o) => o.id === occurrenceId) ?? null;
-  const candidates = chosen ? fulfilmentCandidates(chosen, transactions, fulfilments) : [];
+  const [occurrenceId, setOccurrenceId] = useState('')
+  const [txnId, setTxnId] = useState('')
+  const chosen = occurrences.find((o) => o.id === occurrenceId) ?? null
+  const candidates = chosen ? fulfilmentCandidates(chosen, transactions, fulfilments) : []
 
   function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!chosen || !txnId) return;
-    onLink(chosen, txnId);
-    setOccurrenceId("");
-    setTxnId("");
+    e.preventDefault()
+    if (!chosen || !txnId) return
+    onLink(chosen, txnId)
+    setOccurrenceId('')
+    setTxnId('')
   }
 
   return (
@@ -173,14 +183,20 @@ function LinkForm({ currency, occurrences, transactions, fulfilments, onLink }: 
         <select
           value={occurrenceId}
           onChange={(e) => {
-            setOccurrenceId(e.target.value);
-            setTxnId("");
+            setOccurrenceId(e.target.value)
+            setTxnId('')
           }}
         >
           <option value="">Choose an occurrence</option>
           {occurrences.map((o) => (
             <option key={o.id} value={o.id}>
-              {o.description} · {o.due_date} · {formatMinor(o.amount_minor, currency)}
+              {o.description}
+              {' '}
+              ·
+              {o.due_date}
+              {' '}
+              ·
+              {formatMinor(o.amount_minor, currency)}
             </option>
           ))}
         </select>
@@ -191,7 +207,10 @@ function LinkForm({ currency, occurrences, transactions, fulfilments, onLink }: 
           <option value="">Choose a Transaction</option>
           {candidates.map((t) => (
             <option key={t.id} value={t.id}>
-              {sideText(t)} · {formatMinor(t.amount_minor, currency)}
+              {sideText(t)}
+              {' '}
+              ·
+              {formatMinor(t.amount_minor, currency)}
             </option>
           ))}
         </select>
@@ -202,5 +221,5 @@ function LinkForm({ currency, occurrences, transactions, fulfilments, onLink }: 
         </button>
       </div>
     </form>
-  );
+  )
 }

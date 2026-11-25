@@ -1,2 +1,2 @@
-export { default as ReviewPage } from "./components/ReviewPage";
-export { badgeText } from "./lib/review";
+export { default as ReviewPage } from './components/ReviewPage'
+export { badgeText } from './lib/review'
