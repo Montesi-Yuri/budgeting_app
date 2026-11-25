@@ -44,5 +44,6 @@
         "loop": "off",
         "keybindings-help": "off",
         "mattpocock-skills:wizard": "off"
-    }
+    },
+    "attribution": { "commit": "", "pr": "", "sessionUrl": false }
 }
