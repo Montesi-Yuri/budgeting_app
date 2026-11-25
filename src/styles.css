@@ -178,3 +178,34 @@ table.compare td {
 table.compare thead th {
   font-weight: 600;
 }
+
+/* Transactions table */
+.filters .field { flex: 1 1 180px; }
+.period-step { display: flex; align-items: center; gap: 6px; }
+.period-step button:not(.link) { padding: 4px 10px; }
+.period-label { min-width: 9em; text-align: center; }
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+table.transactions { width: 100%; border-collapse: collapse; }
+table.transactions th, table.transactions td { padding: 8px 10px; text-align: left; vertical-align: middle; border-top: 1px solid var(--border); }
+table.transactions thead th { border-top: none; font-size: 0.85rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
+table.transactions .num { text-align: right; }
+table.transactions td.date { white-space: nowrap; min-width: 0; }
+table.transactions tbody tr { cursor: pointer; }
+table.transactions tbody tr:hover, table.transactions tbody tr:focus-visible { background: var(--bg); outline: none; }
+table.transactions tbody tr:focus-visible { box-shadow: inset 3px 0 0 var(--accent); }
+table.transactions td select { max-width: 14em; padding: 4px 6px; }
+table.transactions .sub { display: none; }
+button.sort { border: none; background: none; padding: 0; font: inherit; color: inherit; }
+.form .actions .delete { margin-right: auto; }
+dialog.modal { padding: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); width: min(560px, calc(100vw - 32px)); }
+dialog.modal::backdrop { background: rgb(0 0 0 / 0.45); }
+dialog.modal > .card { margin: 0; border: none; }
+/* Narrow screens and the phone build (also in landscape): no Category or Note column. */
+.app.phone table.transactions .col-category, .app.phone table.transactions .col-note { display: none; }
+.app.phone table.transactions .sub { display: block; }
+@media (max-width: 600px) {
+  table.transactions .col-category, table.transactions .col-note { display: none; }
+  table.transactions .sub { display: block; }
+  table.transactions th, table.transactions td { padding: 8px 6px; }
+  dialog.modal { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border: none; border-radius: 0; }
+}

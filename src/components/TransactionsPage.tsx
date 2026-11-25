@@ -1,10 +1,26 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AccountWithBalance, api, Category, errorMessage, Transaction, TransactionView } from "../api";
-import { FLOW_LABEL, transactionFlow } from "../categories";
+import { categoryChoices, FLOW_LABEL, transactionFlow } from "../categories";
 import { formatMinor } from "../money";
+import { localToday, periodLabel, periodOf, shiftPeriod } from "../periods";
+import {
+  ALL_TRANSACTIONS,
+  CategoryFilter,
+  filterTransactions,
+  isFiltered,
+  NEWEST_FIRST,
+  SortKey,
+  sortTransactions,
+  TransactionFilter,
+  TransactionSort,
+} from "../transactionTable";
+import CategorySelect from "./CategorySelect";
 import TransactionForm from "./TransactionForm";
 
-/** The Transaction list of one Account, newest first, with add/edit/delete. */
+// The filters and sort outlive the page (switching tab or Account) until the app restarts.
+let remembered: { filter: TransactionFilter; sort: TransactionSort } = { filter: ALL_TRANSACTIONS, sort: NEWEST_FIRST };
+
+/** The Transaction table of one Account, with sorting, filters and add/edit/delete. */
 export default function TransactionsPage({ currency }: { currency: string }) {
   const [accounts, setAccounts] = useState<AccountWithBalance[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -12,6 +28,22 @@ export default function TransactionsPage({ currency }: { currency: string }) {
   const [transactions, setTransactions] = useState<TransactionView[] | null>(null);
   const [editing, setEditing] = useState<Transaction | "new" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilterState] = useState(remembered.filter);
+  const [sort, setSortState] = useState(remembered.sort);
+  // Rows whose Category was changed in the table stay visible until the filters or the Account change.
+  const [kept, setKept] = useState<Set<string>>(new Set());
+  // Category changes being saved, shown in the row until the list reloads.
+  const [saving, setSaving] = useState<Map<string, string | null>>(new Map());
+
+  function setFilter(next: TransactionFilter) {
+    remembered = { ...remembered, filter: next };
+    setFilterState(next);
+    setKept(new Set());
+  }
+  function setSort(next: TransactionSort) {
+    remembered = { ...remembered, sort: next };
+    setSortState(next);
+  }
 
   useEffect(() => {
     Promise.all([api.accountsList(), api.categoriesList()]).then(([accs, cats]) => {
@@ -24,17 +56,51 @@ export default function TransactionsPage({ currency }: { currency: string }) {
   const reload = useCallback(() => {
     if (!accountId) return;
     api.accountsList().then(setAccounts, (e) => setError(errorMessage(e)));
-    api.transactionsList(accountId).then(setTransactions, (e) => setError(errorMessage(e)));
+    return api.transactionsList(accountId).then(setTransactions, (e) => setError(errorMessage(e)));
   }, [accountId]);
-  useEffect(reload, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
+  // A remembered Category may have been deleted since (e.g. on another Device): show everything instead.
+  const category = filter.category;
+  const activeFilter: TransactionFilter =
+    typeof category === "object" && !categories.some((c) => c.id === category.categoryId)
+      ? { ...filter, category: "all" }
+      : filter;
+
+  const shown = useMemo(() => {
+    if (!transactions) return null;
+    const matching = new Set(filterTransactions(transactions, activeFilter, categories).map((t) => t.id));
+    return sortTransactions(
+      transactions.filter((t) => matching.has(t.id) || kept.has(t.id)),
+      sort,
+    );
+  }, [transactions, activeFilter, categories, kept, sort]);
+
+  /** Called from the Edit dialog, which shows the error if it fails. */
   async function remove(t: Transaction) {
     if (!window.confirm(`Delete the Transaction "${t.description}"?`)) return;
+    await api.transactionDelete(t.id);
+    setEditing(null);
+    void reload();
+  }
+
+  async function setCategory(t: TransactionView, categoryId: string | null) {
+    setError(null);
+    setSaving((m) => new Map(m).set(t.id, categoryId));
+    setKept((k) => new Set(k).add(t.id));
     try {
-      await api.transactionDelete(t.id);
-      reload();
+      await api.transactionSetCategory(t.id, categoryId);
+      await reload();
     } catch (e) {
       setError(errorMessage(e));
+    } finally {
+      setSaving((m) => {
+        const next = new Map(m);
+        next.delete(t.id);
+        return next;
+      });
     }
   }
 
@@ -52,7 +118,7 @@ export default function TransactionsPage({ currency }: { currency: string }) {
     <>
       <div className="heading">
         <h1>Transactions</h1>
-        {editing === null && accountId && (
+        {accountId && (
           <button className="primary" onClick={() => setEditing("new")}>
             Add Transaction
           </button>
@@ -63,7 +129,13 @@ export default function TransactionsPage({ currency }: { currency: string }) {
         <div className="row toolbar">
           <label className="field">
             <span>Account</span>
-            <select value={accountId ?? ""} onChange={(e) => setAccountId(e.target.value)}>
+            <select
+              value={accountId ?? ""}
+              onChange={(e) => {
+                setAccountId(e.target.value);
+                setKept(new Set());
+              }}
+            >
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -79,8 +151,10 @@ export default function TransactionsPage({ currency }: { currency: string }) {
         </div>
       )}
 
+      <Filters filter={activeFilter} categories={categories} onChange={setFilter} />
+
       {editing !== null && accounts && accountId && (
-        <TransactionForm
+        <TransactionDialog
           currency={currency}
           accounts={accounts}
           categories={categories}
@@ -88,27 +162,83 @@ export default function TransactionsPage({ currency }: { currency: string }) {
           transaction={editing === "new" ? null : editing}
           onDone={() => {
             setEditing(null);
-            reload();
+            void reload();
           }}
           onCancel={() => setEditing(null)}
+          onDelete={editing === "new" ? undefined : () => remove(editing)}
         />
       )}
 
+      {transactions && transactions.length > 0 && shown && isFiltered(activeFilter) && (
+        <p className="muted small">
+          {shown.length} of {transactions.length} Transactions · total{" "}
+          <Money minor={shown.reduce((sum, t) => sum + t.amount_minor, 0)} currency={currency} />
+        </p>
+      )}
       {transactions && transactions.length === 0 && <p className="muted">No Transactions on this Account yet.</p>}
-      {transactions && transactions.length > 0 && (
-        <ul className="list">
-          {transactions.map((t) => (
-            <li key={t.id} className="row-item">
-              <TransactionSummary t={t} currency={currency} />
-              <span className="actions">
-                <button onClick={() => setEditing(t)}>Edit</button>
-                <button className="danger" onClick={() => remove(t)}>
-                  Delete
-                </button>
-              </span>
-            </li>
-          ))}
-        </ul>
+      {transactions && transactions.length > 0 && shown?.length === 0 && (
+        <p className="muted">
+          No Transactions match these filters.{" "}
+          <button onClick={() => setFilter(ALL_TRANSACTIONS)}>Clear filters</button>
+        </p>
+      )}
+      {shown && shown.length > 0 && (
+        <div className="table-wrap">
+          <table className="transactions">
+            <thead>
+              <tr>
+                <SortHeader label="Date" sortKey="date" sort={sort} onSort={setSort} />
+                <SortHeader label="Description" sortKey="description" sort={sort} onSort={setSort} />
+                <SortHeader label="Category" sortKey="category" sort={sort} onSort={setSort} className="col-category" />
+                <th className="col-note">Note</th>
+                <SortHeader label="Amount" sortKey="amount" sort={sort} onSort={setSort} className="num" />
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((t) => {
+                const refund = transactionFlow(t.category_kind, t.amount_minor) === "refund";
+                const pending = saving.has(t.id);
+                return (
+                  <tr
+                    key={t.id}
+                    tabIndex={0}
+                    aria-label={`Edit ${t.description}`}
+                    onClick={() => setEditing(t)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && e.target === e.currentTarget) setEditing(t);
+                    }}
+                  >
+                    <td className="date">{t.date}</td>
+                    <td>
+                      <span className="name">{t.description}</span>
+                      <span className="sub muted small">
+                        {t.category_name ?? "Uncategorised"}
+                        {refund && <span className="badge refund">{FLOW_LABEL.refund}</span>}
+                      </span>
+                    </td>
+                    <td className="col-category">
+                      {/* The picker edits in place; the rest of the row opens the dialog. */}
+                      <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                        <CategorySelect
+                          aria-label={`Category for ${t.description}`}
+                          categories={categories}
+                          value={pending ? (saving.get(t.id) ?? null) : t.category_id}
+                          disabled={pending}
+                          onChange={(categoryId) => setCategory(t, categoryId)}
+                        />
+                      </span>
+                      {refund && <span className="badge refund">{FLOW_LABEL.refund}</span>}
+                    </td>
+                    <td className="col-note muted small">{t.note}</td>
+                    <td className="num">
+                      <Money minor={t.amount_minor} currency={currency} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       {account && (
         <p className="muted small">
@@ -116,6 +246,121 @@ export default function TransactionsPage({ currency }: { currency: string }) {
         </p>
       )}
     </>
+  );
+}
+
+/** The Category filter <select> value for Uncategorised. */
+const UNCATEGORISED_VALUE = "uncategorised";
+
+function Filters({
+  filter,
+  categories,
+  onChange,
+}: {
+  filter: TransactionFilter;
+  categories: Category[];
+  onChange: (filter: TransactionFilter) => void;
+}) {
+  const categoryValue =
+    filter.category === "all" ? "" : filter.category === "uncategorised" ? UNCATEGORISED_VALUE : filter.category.categoryId;
+  const toCategory = (value: string): CategoryFilter =>
+    value === "" ? "all" : value === UNCATEGORISED_VALUE ? "uncategorised" : { categoryId: value };
+  const stepPeriod = (delta: number) =>
+    onChange({ ...filter, period: filter.period === null ? periodOf(localToday()) : shiftPeriod(filter.period, delta) });
+
+  return (
+    <div className="row toolbar filters">
+      <label className="field">
+        <span>Search</span>
+        <input
+          type="search"
+          value={filter.text}
+          placeholder="Description or note"
+          onChange={(e) => onChange({ ...filter, text: e.target.value })}
+        />
+      </label>
+      <label className="field">
+        <span>Category</span>
+        <select value={categoryValue} onChange={(e) => onChange({ ...filter, category: toCategory(e.target.value) })}>
+          <option value="">All Categories</option>
+          <option value={UNCATEGORISED_VALUE}>Uncategorised</option>
+          {categoryChoices(categories).map((group) => (
+            <optgroup key={group.kind} label={group.label}>
+              {group.options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+      <div className="field">
+        <span>Period</span>
+        <div className="period-step">
+          <button aria-label="Previous Period" onClick={() => stepPeriod(-1)}>
+            ‹
+          </button>
+          <span className="period-label">{filter.period === null ? "All Periods" : periodLabel(filter.period)}</span>
+          <button aria-label="Next Period" onClick={() => stepPeriod(1)}>
+            ›
+          </button>
+          {filter.period !== null && (
+            <button className="link" onClick={() => onChange({ ...filter, period: null })}>
+              All
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SortHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: TransactionSort;
+  onSort: (sort: TransactionSort) => void;
+  className?: string;
+}) {
+  const active = sort.key === sortKey;
+  // A new column starts with the order you most likely want: newest, A–Z, biggest spend first.
+  const first = sortKey === "date" ? "desc" : "asc";
+  return (
+    <th className={className} aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button
+        className="sort"
+        onClick={() => onSort({ key: sortKey, dir: active ? (sort.dir === "asc" ? "desc" : "asc") : first })}
+      >
+        {label}
+        {active && <span aria-hidden="true">{sort.dir === "asc" ? " ▲" : " ▼"}</span>}
+      </button>
+    </th>
+  );
+}
+
+/** Add or edit a Transaction in a modal dialog; Escape or Cancel closes it. */
+function TransactionDialog(props: React.ComponentProps<typeof TransactionForm>) {
+  const ref = useCallback((dialog: HTMLDialogElement | null) => {
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      className="modal"
+      onCancel={(e) => {
+        e.preventDefault();
+        props.onCancel();
+      }}
+    >
+      <TransactionForm {...props} />
+    </dialog>
   );
 }
 

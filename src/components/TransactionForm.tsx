@@ -13,11 +13,13 @@ type Props = {
   transaction: Transaction | null;
   onDone: () => void;
   onCancel: () => void;
+  /** Shown as a Delete button when editing; a rejection is shown in the form. */
+  onDelete?: () => Promise<void>;
 };
 
 const today = () => new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD in local time
 
-export default function TransactionForm({ currency, accounts, categories, accountId, transaction, onDone, onCancel }: Props) {
+export default function TransactionForm({ currency, accounts, categories, accountId, transaction, onDone, onCancel, onDelete }: Props) {
   const [account, setAccount] = useState(transaction?.account_id ?? accountId);
   const [date, setDate] = useState(transaction?.date ?? today());
   const [amount, setAmount] = useState(transaction ? toAmountInput(transaction.amount_minor, currency) : "");
@@ -53,6 +55,18 @@ export default function TransactionForm({ currency, accounts, categories, accoun
       if (transaction) await api.transactionUpdate({ ...fields, id: transaction.id });
       else await api.transactionCreate(fields);
       onDone();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(onDelete: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await onDelete();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -104,6 +118,11 @@ export default function TransactionForm({ currency, accounts, categories, accoun
       </label>
       {error && <p className="error">{error}</p>}
       <div className="actions">
+        {onDelete && (
+          <button type="button" className="danger delete" onClick={() => remove(onDelete)} disabled={busy}>
+            Delete
+          </button>
+        )}
         <button type="submit" className="primary" disabled={busy}>
           {transaction ? "Save" : "Add Transaction"}
         </button>
