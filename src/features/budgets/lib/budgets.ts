@@ -11,7 +11,7 @@ const NEAR_SHARE = 0.9
  * make spending negative; the bar then stays empty.
  */
 export function budgetMeter(spentMinor: number, amountMinor: number): { percent: number, tone: MeterTone } {
-  const share = amountMinor > 0 ? Math.max(spentMinor, 0) / amountMinor : 1
-  const tone: MeterTone = spentMinor > amountMinor ? 'over' : share >= NEAR_SHARE ? 'near' : 'ok'
-  return { percent: Math.min(100, Math.round(share * 100)), tone }
+	const share = amountMinor > 0 ? Math.max(spentMinor, 0) / amountMinor : 1
+	const tone: MeterTone = spentMinor > amountMinor ? 'over' : share >= NEAR_SHARE ? 'near' : 'ok'
+	return { percent: Math.min(100, Math.round(share * 100)), tone }
 }

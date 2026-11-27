@@ -8,17 +8,17 @@ export type DataChanged = { entities: string[] }
  * applied). The latest `handler` is used, so it needn't be memoised.
  */
 export function useDataChanged(handler: (payload: DataChanged) => void) {
-  const onChange = useEffectEvent(handler)
+	const onChange = useEffectEvent(handler)
 
-  useEffect(() => {
-    let unlisten: (() => void) | undefined
-    let cancelled = false
-    listen<DataChanged>('data://changed', ({ payload }) => onChange(payload))
-      .then((fn) => (cancelled ? fn() : (unlisten = fn)))
-      .catch(() => undefined)
-    return () => {
-      cancelled = true
-      unlisten?.()
-    }
-  }, [])
+	useEffect(() => {
+		let unlisten: (() => void) | undefined
+		let cancelled = false
+		listen<DataChanged>('data://changed', ({ payload }) => onChange(payload))
+			.then((fn) => (cancelled ? fn() : (unlisten = fn)))
+			.catch(() => undefined)
+		return () => {
+			cancelled = true
+			unlisten?.()
+		}
+	}, [])
 }

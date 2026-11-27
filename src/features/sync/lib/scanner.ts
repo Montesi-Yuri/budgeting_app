@@ -6,13 +6,13 @@ import { scannedPairingCode, Scanned } from './pairing'
 
 /** Ask for the camera if needed, scan one QR code and check it is a pairing code. */
 export async function scanPairingCode(): Promise<Scanned> {
-  const permission = await requestPermissions()
-  if (permission !== 'granted') {
-    return {
-      ok: false,
-      error: 'The app needs the camera to scan the pairing code. Allow it in the phone\'s settings, or paste the code instead.',
-    }
-  }
-  const scanned = await scan({ windowed: false, formats: [Format.QRCode] })
-  return scannedPairingCode(scanned.content)
+	const permission = await requestPermissions()
+	if (permission !== 'granted') {
+		return {
+			ok: false,
+			error: 'The app needs the camera to scan the pairing code. Allow it in the phone\'s settings, or paste the code instead.',
+		}
+	}
+	const scanned = await scan({ windowed: false, formats: [Format.QRCode] })
+	return scannedPairingCode(scanned.content)
 }
